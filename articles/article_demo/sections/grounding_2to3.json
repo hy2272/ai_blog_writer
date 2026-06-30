@@ -1,9 +1,9 @@
 {
   "stage": "2->3",
   "items": [
-    {"id": 1, "claim": "六月厂商集中发布新模型", "grounded": true, "sources": ["S1", "S2", "S3"], "note": "三条源的日期落在同一窗口"},
-    {"id": 2, "claim": "微软发布七个 MAI 模型，MAI-Thinking-1 盲测优于 Sonnet 4.6", "grounded": true, "sources": ["S1"], "note": "S1 原文"},
-    {"id": 3, "claim": "Claude Fable 5 主打推理、100 万 token 上下文", "grounded": true, "sources": ["S2"], "note": "S2 note"},
-    {"id": 4, "claim": "OpenAI 同期上线 GPT-5.5 系列", "grounded": true, "sources": ["S3"], "note": "S3 note"}
+    {"id": 1, "claim": "六月厂商集中发布新模型", "grounded": true, "outline_ids": ["1"], "source_ids": ["S1", "S2", "S3"], "note": "outline item 1 frames the June model-release cluster"},
+    {"id": 2, "claim": "微软发布七个 MAI 模型，MAI-Thinking-1 盲测优于 Sonnet 4.6", "grounded": true, "outline_ids": ["1"], "source_ids": ["S1"], "note": "outline item 1 includes Microsoft MAI as one release in the cluster"},
+    {"id": 3, "claim": "Claude Fable 5 主打推理、100 万 token 上下文", "grounded": true, "outline_ids": ["1"], "source_ids": ["S2"], "note": "outline item 1 uses Claude as the long-context example"},
+    {"id": 4, "claim": "OpenAI 同期上线 GPT-5.5 系列", "grounded": true, "outline_ids": ["1"], "source_ids": ["S3"], "note": "outline item 1 includes OpenAI as the third June release"}
   ]
 }

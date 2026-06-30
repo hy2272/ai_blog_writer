@@ -107,11 +107,12 @@ coordinator. Stages mirror sas2pyspark:
   truth each section must not contradict). ⏸ HUMAN gate: right angle? sources fresh enough?
 - **S2 editorial** — write a per-section contract (coverage points, must-cite sources,
   word range, Given/When/Then acceptance). Contract is law.
-- **S3 write ∥ fact-check** — per section, in parallel: `writer` implements the
-  contract; `fact-checker` verifies every claim against the source pack.
+- **S3 write → fact-check → fix** — per section: `writer` drafts first; `fact-checker`
+  verifies that exact draft against the source pack; writer fixes any unsupported claim.
 - **S4 citation audit (HARD gate)** — `citation_audit.py` on each section: no 裸论断,
   every `[Sn]` valid + fresh, coverage met. Fail → back to writer. (= sas fidelity-auditor.)
-- **S5 humanizer** — remove "AI 味" + self-audit against `style_patterns.md`.
+- **S5 humanizer** — remove "AI 味" + self-audit against `style_patterns.md`; re-run
+  `audit_article.py` so final assembly cannot drop section coverage.
 - **S6 editorial-review (advisory)** — read-only reviewer judges ONLY the axes the
   audit can't see; emits BLOCKER/WARN/NOTE → orchestrator decides → fixer → re-verify.
 - **S7 output** — assemble + emit md / html.
@@ -132,7 +133,7 @@ you ─ orchestrator (owns state, dispatches, stops at every gate)
         ├─ S0  topic + decompose into section nodes          (you do this)
         ├─ S1  research ............. dated source_pack.json  →  ⏸ HUMAN approves angle
         ├─ S2  editorial ............ per-section contract
-        ├─ S3  per section:  writer ∥ fact-checker
+        ├─ S3  per section:  writer → fact-checker → writer fix
         ├─ S4  citation-auditor ..... HARD gate (citation_audit.py)
         ├─ S5  humanizer ............ 去 AI 味 + self-audit
         ├─ S6  editorial-reviewer ... advisory → you decide → fixer → re-verify

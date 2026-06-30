@@ -24,6 +24,8 @@ Read `.claude/runtime.md` for the exact command.
 3. Write `sections/sec<k>_audit.md`: the tool output verbatim + a one-line verdict.
 4. On FAIL, list each finding with the specific sentence/source it points to, so the
    writer's next iteration is targeted, not a guess.
+5. Write/update `sections/sec<k>_result.json` with `stage:"S4-citation-audit"`,
+   `status`, `files`, and machine-readable `findings`.
 
 Optional, when the orchestrator asks for the final pass: add `--check-links` to verify
 cited URLs resolve, and `--strict` to promote freshness WARNs to failures.
