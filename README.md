@@ -149,6 +149,7 @@ tools/
   audit_article.py     article-level wrapper over section/final audits
   xhs_image_post.py    default Xiaohongshu long-image post package builder
   news_discover.py     S0 topic discovery — fresh dated AI headlines via Apify
+  xhs_research.py      one-off 小红书 爆款 calibration for the paradigm note (Apify)
   apify_client.py      thin stdlib Apify REST client (run an actor, get dataset items)
   gemini_polish.py     optional final fluency pass
 articles/

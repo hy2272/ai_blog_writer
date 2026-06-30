@@ -34,7 +34,10 @@ python3 tools/xhs_image_post.py articles/article_<slug>/final.md \
 
 ## Cover title — the highest-leverage asset (≤ 14 字)
 - **Quantify it.** A number beats an adjective: 「这6件事」「省了3小时」「踩了5个坑」.
-  量化制造爽感和价值感 — the single strongest cover technique.
+  量化制造爽感和价值感 — the single strongest cover technique. *Calibrated against real
+  data (`tools/xhs_research.py`, keyword 「AI编程」, n=26, 2026-07-01): titles containing a
+  number had ~4.3× the median engagement of those without (11,196 vs 2,602). Small,
+  noisy sample — directional, not precise — but the effect is large enough to act on.*
 - **First person + stake.** 「我用了一年…」「亲测」「我赌」 — earned experience, not 测评体.
 - **Curiosity gap.** Promise a payoff without giving it: 「确信这6件事会发生」「最后一个最意外」.
 - Readable as a thumbnail; `card_01` is the cover.
