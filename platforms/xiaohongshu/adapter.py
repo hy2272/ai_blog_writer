@@ -188,9 +188,20 @@ def chunk_paragraphs(paragraphs: list[str], max_chars: int = MAX_BODY_CHARS) -> 
     return chunks
 
 
-def build_cards(title: str, sections: list[Section], refs: list[str], citations: set[str]) -> list[Card]:
+def build_cards(
+    title: str,
+    sections: list[Section],
+    refs: list[str],
+    citations: set[str],
+    cover_title: str | None = None,
+    cover_subtitle: str | None = None,
+) -> list[Card]:
+    # The cover is the highest-leverage asset on Xiaohongshu — a hook, not the raw
+    # article H1. The editorial/output agent supplies cover_title/cover_subtitle via
+    # the meta sidecar; absent that, fall back to the article title.
+    cover_body = [cover_subtitle] if cover_subtitle else ["技术帖长图版", "先看结论，再看依据"]
     cards: list[Card] = [
-        Card("cover", title[:28], ["技术帖长图版", "先看结论，再看依据"], "AI / 技术更新"),
+        Card("cover", (cover_title or title)[:28], cover_body, "AI / 技术更新"),
     ]
 
     outline = [f"{i}. {s.title}" for i, s in enumerate(sections, start=1)]
@@ -335,33 +346,77 @@ def render_png(html_path: Path, png_path: Path, chrome: str, timeout: int) -> No
         )
 
 
-def caption_text(title: str, sections: list[Section], citations: set[str], tags: list[str]) -> str:
-    bullets = [f"▪️ {s.title}" for s in sections[:5]]
-    body = [
-        title,
-        "",
-        "这篇做成长图，适合先收藏再慢慢看。",
-        "",
-        *bullets,
-        "",
-        f"来源标记：{', '.join(sorted(citations)) if citations else '见图中标注'}",
-        "",
-        "话题用 # 选择器逐个选，别直接粘：",
-        " ".join(tags),
-    ]
-    return "\n".join(body).strip() + "\n"
+def caption_text(
+    title: str,
+    sections: list[Section],
+    citations: set[str],
+    tags: list[str],
+    override: str | None = None,
+) -> str:
+    # `override` is the agent-written shortened caption (a hook teaser, not the full
+    # article). Without it, derive a plain route caption from the sections.
+    if override and override.strip():
+        prose = override.strip()
+    else:
+        bullets = [f"▪️ {s.title}" for s in sections[:5]]
+        prose = "\n".join(
+            [
+                title,
+                "",
+                "这篇做成长图，适合先收藏再慢慢看。",
+                "",
+                *bullets,
+                "",
+                f"来源标记：{', '.join(sorted(citations)) if citations else '见图中标注'}",
+            ]
+        )
+    tag_block = "话题用 # 选择器逐个选，别直接粘：\n" + " ".join(tags)
+    return prose.strip() + "\n\n" + tag_block + "\n"
 
 
-def write_manifest(out_dir: Path, title: str, cards: list[Card], rendered: list[str], citations: set[str]) -> None:
+# Numbers in the caption must already appear in the verified body — a shortened
+# teaser must not invent a fact (the project's no-claim-without-a-source rule). This
+# is the machine-checkable hook over the otherwise-editorial caption.
+CAPTION_NUM_RE = re.compile(r"\d+(?:\.\d+)?%?")
+CN_DIGIT = {"0": "零", "1": "一", "2": "二", "3": "三", "4": "四",
+            "5": "五", "6": "六", "7": "七", "8": "八", "9": "九", "10": "十"}
+
+
+def caption_unverified_numbers(caption: str, body: str) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for tok in CAPTION_NUM_RE.findall(caption):
+        if tok in seen:
+            continue
+        if tok in body:
+            continue
+        cn = CN_DIGIT.get(tok)
+        if cn and cn in body:
+            continue
+        seen.add(tok)
+        out.append(tok)
+    return out
+
+
+def write_manifest(
+    out_dir: Path,
+    title: str,
+    cards: list[Card],
+    rendered: list[str],
+    citations: set[str],
+    unverified_numbers: list[str],
+) -> None:
     manifest = {
         "platform": "xiaohongshu",
         "format": "long_image_post",
         "default": True,
         "title": title,
+        "cover_title": cards[0].title if cards else title,
         "card_count": len(cards),
         "rendered_count": len(rendered),
         "image_size": {"width": CARD_W, "height": CARD_H},
         "max_body_chars": max((card_body_width(c) for c in cards), default=0),
+        "caption_unverified_numbers": unverified_numbers,
         "cards": [
             {
                 "index": i,
@@ -382,10 +437,22 @@ def write_manifest(out_dir: Path, title: str, cards: list[Card], rendered: list[
     )
 
 
-def generate_package(input_path: Path, out_dir: Path, render: bool, tags: list[str], render_timeout: int) -> dict:
+def generate_package(
+    input_path: Path,
+    out_dir: Path,
+    render: bool,
+    tags: list[str],
+    render_timeout: int,
+    meta: dict | None = None,
+) -> dict:
+    meta = meta or {}
     text = input_path.read_text(encoding="utf-8")
     title, sections, refs, citations = parse_markdown(text)
-    cards = build_cards(title, sections, refs, citations)
+    cards = build_cards(
+        title, sections, refs, citations,
+        cover_title=meta.get("cover_title"),
+        cover_subtitle=meta.get("cover_subtitle"),
+    )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     rendered: list[str] = []
@@ -420,15 +487,16 @@ def generate_package(input_path: Path, out_dir: Path, render: bool, tags: list[s
                 else:
                     rendered.append(png_path.name)
 
-    (out_dir / "post_xiaohongshu.txt").write_text(
-        caption_text(title, sections, citations, tags),
-        encoding="utf-8",
-    )
-    write_manifest(out_dir, title, cards, rendered, citations)
+    caption = caption_text(title, sections, citations, tags, override=meta.get("caption"))
+    (out_dir / "post_xiaohongshu.txt").write_text(caption, encoding="utf-8")
+    unverified = caption_unverified_numbers(caption, text)
+    write_manifest(out_dir, title, cards, rendered, citations, unverified)
     return {
         "title": title,
+        "cover_title": cards[0].title if cards else title,
         "cards": len(cards),
         "rendered": len(rendered),
+        "caption_unverified_numbers": unverified,
         "out_dir": str(out_dir),
     }
 
@@ -440,12 +508,24 @@ def main(argv=None) -> int:
     ap.add_argument("--no-render", action="store_true", help="write HTML only; do not call Chrome")
     ap.add_argument("--render-timeout", type=int, default=20, help="seconds to wait per Chrome screenshot")
     ap.add_argument("--tags", help="comma-separated suggested Xiaohongshu topics")
+    ap.add_argument("--meta", help="JSON sidecar with cover_title / cover_subtitle / caption")
+    ap.add_argument("--check-caption", action="store_true",
+                    help="exit nonzero if the caption contains a number absent from the verified body")
     args = ap.parse_args(argv)
 
     tags = [x.strip() for x in args.tags.split(",")] if args.tags else DEFAULT_TAGS
     tags = [x for x in tags if x]
-    result = generate_package(Path(args.input), Path(args.out_dir), not args.no_render, tags, args.render_timeout)
+    meta = json.loads(Path(args.meta).read_text(encoding="utf-8")) if args.meta else {}
+    result = generate_package(
+        Path(args.input), Path(args.out_dir), not args.no_render, tags, args.render_timeout, meta=meta,
+    )
     print("xhs_image_post:", json.dumps(result, ensure_ascii=False))
+    unverified = result["caption_unverified_numbers"]
+    if unverified:
+        print(f"WARN: caption has numbers not in the verified body: {unverified}", file=sys.stderr)
+        if args.check_caption:
+            print("FAIL: --check-caption — a shortened caption must not invent a fact", file=sys.stderr)
+            return 2
     return 0
 
 

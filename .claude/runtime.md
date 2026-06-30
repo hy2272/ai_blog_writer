@@ -65,11 +65,14 @@ Cost guard: refuses if estimate > $1 (≈$0.001/post normally). See
 Default Xiaohongshu output is a long-image technical post:
 ```
 python3 tools/xhs_image_post.py articles/article_<slug>/final.md \
-  --out-dir articles/article_<slug>/assets/xhs
+  --out-dir articles/article_<slug>/assets/xhs \
+  --meta articles/article_<slug>/xhs_meta.json --check-caption
 ```
 The adapter writes `card_01.html`... always, renders `card_01.png`... when Chrome is
 available, and emits `post_xiaohongshu.txt` + `content_manifest.json`. Use `--no-render`
-only for CI or environments without Chrome.
+only for CI or environments without Chrome. The `--meta` sidecar supplies the hook
+`cover_title` + shortened `caption` (paradigm: `common/behavior_notes/xiaohongshu-baokuan-paradigm.md`);
+`--check-caption` fails if the caption invents a number the verified body never claims.
 
 ## Per-article layout
 `/new-article <slug>` scaffolds:

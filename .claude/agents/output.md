@@ -19,14 +19,21 @@ default deliverable is a long-image technical post, not a short text post.
    result in the article's STATE.md:
    `python3 tools/audit_article.py articles/article_<slug> --as-of <research date> --check-links --strict`.
    If it is not green, STOP and report — do not ship.
-4. For Xiaohongshu, build the default long-image post package:
+4. For Xiaohongshu, first write `articles/article_<slug>/xhs_meta.json` — the cover hook
+   title + shortened caption the deterministic adapter cannot derive. Follow
+   `common/behavior_notes/xiaohongshu-baokuan-paradigm.md`: `cover_title` (≤14字,
+   数字+第一人称+悬念), `cover_subtitle`, and `caption` (a shortened 网感 teaser, NOT the
+   full article). The caption may only use numbers that appear in the verified body.
+   Then build the default long-image post package:
    ```
    python3 tools/xhs_image_post.py articles/article_<slug>/final.md \
-     --out-dir articles/article_<slug>/assets/xhs
+     --out-dir articles/article_<slug>/assets/xhs \
+     --meta articles/article_<slug>/xhs_meta.json --check-caption
    ```
    This emits card HTML, card PNGs when Chrome is available, `post_xiaohongshu.txt`, and
-   `content_manifest.json`. If PNG rendering is unavailable, STOP with the HTML cards and
-   report that rendering must be run in an environment with Chrome.
+   `content_manifest.json`. `--check-caption` exits nonzero if the caption invents a number
+   the body never claims — fix the caption, do not ship it. If PNG rendering is
+   unavailable, STOP with the HTML cards and report that rendering needs Chrome.
 5. (Optional, recommended for 小红书/public) Final language polish via Gemini — fluency
    ONLY, never facts/citations: `python3 tools/gemini_polish.py <final.txt> --out <…>`
    (see `common/behavior_notes/gemini-polish-pass.md`). Re-run the citation audit on the

@@ -65,6 +65,32 @@ jobs:
           assert manifest["card_count"] >= 6, manifest["card_count"]
           PY
 
+      - name: Xiaohongshu meta sidecar drives cover + caption; traceable numbers pass
+        run: |
+          python3 tools/xhs_image_post.py tests/fixtures/article_good_final/final.md \
+            --out-dir /tmp/xhs_meta_good \
+            --no-render \
+            --meta tests/fixtures/xhs/meta_good.json \
+            --check-caption
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("/tmp/xhs_meta_good/content_manifest.json").read_text(encoding="utf-8"))
+          assert manifest["cover_title"] == "用了一年AI工具，我赌这6件事会变", manifest["cover_title"]
+          assert manifest["caption_unverified_numbers"] == [], manifest["caption_unverified_numbers"]
+          PY
+
+      - name: Xiaohongshu caption that invents a number fails --check-caption
+        run: |
+          if python3 tools/xhs_image_post.py tests/fixtures/article_good_final/final.md \
+            --out-dir /tmp/xhs_meta_bad \
+            --no-render \
+            --meta tests/fixtures/xhs/meta_bad.json \
+            --check-caption; then
+            echo "ERROR: invented-number caption should have failed --check-caption"
+            exit 1
+          fi
+
       - name: Negative citation fixtures fail
         run: |
           if python3 tools/citation_audit.py tests/fixtures/citation/bad_missing_citation.md \
