@@ -62,6 +62,15 @@ numbers/units pre→post and exits 3 on a mismatch (polish can flip a fact, e.g.
 Cost guard: refuses if estimate > $1 (≈$0.001/post normally). See
 `common/behavior_notes/gemini-polish-pass.md`. A bulk run that could exceed $1 → ask Hanfei first.
 
+Default Xiaohongshu output is a long-image technical post:
+```
+python3 tools/xhs_image_post.py articles/article_<slug>/final.md \
+  --out-dir articles/article_<slug>/assets/xhs
+```
+The adapter writes `card_01.html`... always, renders `card_01.png`... when Chrome is
+available, and emits `post_xiaohongshu.txt` + `content_manifest.json`. Use `--no-render`
+only for CI or environments without Chrome.
+
 ## Per-article layout
 `/new-article <slug>` scaffolds:
 ```
@@ -86,6 +95,7 @@ articles/article_<slug>/
     S6-editorial-review.json
     S7-output.json
   final.md / final.html     the deliverable (output)
+  assets/xhs/               default Xiaohongshu long-image post package
 ```
 
 ## Definition of done (3 tiers)

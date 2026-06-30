@@ -87,6 +87,16 @@ python3 tools/grounding_gate.py articles/article_demo/sections/grounding_2to3.js
 python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09               # PASS
 ```
 
+Build the default 小红书 technical long-image package after `final.md` is verified:
+
+```
+python3 tools/xhs_image_post.py articles/article_<slug>/final.md \
+  --out-dir articles/article_<slug>/assets/xhs
+```
+
+This writes card HTML, PNG cards when Chrome is available, a paste-ready caption, and
+`content_manifest.json` for the manual publish queue.
+
 ### Optional: a final Chinese polish via Gemini
 
 After both oracles are green, an optional last pass sends the finished text through Gemini
@@ -115,10 +125,13 @@ RUNBOOK.md             step-by-step
 common/
   style_patterns.md    voice + 去 AI 味 + the §7 hard-rule checklist (single source of truth)
   behavior_notes/      conditional knowledge the writing agents glob (incl. 小红书 mode)
+platforms/
+  xiaohongshu/         default long-image post adapter
 tools/
   citation_audit.py    oracle 1 — marker/freshness/coverage
   grounding_gate.py    oracle 2 — faithfulness
   audit_article.py     article-level wrapper over section/final audits
+  xhs_image_post.py    default Xiaohongshu long-image post package builder
   gemini_polish.py     optional final fluency pass
 articles/
   _TEMPLATE/           per-article scaffold

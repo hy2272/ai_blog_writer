@@ -1,9 +1,10 @@
 # 小红书 (Xiaohongshu/RED) output mode
 
 **When this applies:** the output stage (S7) when the target platform is 小红书, and the
-editorial stage (S2) when setting per-section word ranges for a 小红书 piece. 小红书 is
-NOT a long-form blog — it is a short, image-first, conversational post. Adjust the
-contract accordingly; the oracle (citation_audit + grounding) still applies unchanged.
+editorial stage (S2) when setting per-section word ranges for a 小红书 piece. The default
+is now a **long-image technical post**: cover + multiple 1080×1440 text cards + a short
+caption. This is the common shape for technical explainers on 小红书: the useful content
+lives in images, while the caption sells the save/read.
 
 **The pattern / rule — the 小红书 deliverable has five parts:**
 
@@ -12,17 +13,17 @@ contract accordingly; the oracle (citation_audit + grounding) still applies unch
    - ✅ "📱Cursor 出手机版了！通勤路上也能让 AI 帮你写代码"
    - ❌ "Cursor 发布移动应用程序：功能概述与分析"
 
-2. **正文 (body)** — ~600–900 字 (短！), 口语第一人称, 分点 (emoji 小标题或 ▪️/1️⃣),
-   段落短、留白多. Keep every factual claim's `[Sn]` marker — the audit still runs.
-   小红书 readers skim: lead each point with the payoff, then the detail.
+2. **长图正文 cards (default)** — 6-10 张 1080×1440 图片：封面、目录、正文卡、参考来源卡。
+   每张卡只讲一个点；技术帖允许信息密度高，但必须有标题层级和留白。Keep every factual
+   claim's `[Sn]` marker in the image text — the audit still runs before rendering.
 
-3. **配图图说 (image captions/overlays)** — for each of 3-6 images, the overlay text +
-   a one-line caption. 封面图 text is the most important asset (see below). List a
-   **shot list**: which screenshots the human must grab (the tool's UI, a real result).
+3. **Caption / 正文框** — short paste-ready text, not the full article. It should say why
+   to save the post, list the card route, and include topic suggestions. The full content
+   is already in the images.
 
 4. **封面图 (cover)** — the single highest-leverage asset on 小红书. A big-type 标题 +
-   one visual hook, readable as a thumbnail. The system has no image sub-agent yet, so
-   produce: cover copy (大字主标题 ≤ 12 字 + 副标题) + optionally an SVG/HTML mockup.
+   one visual hook, readable as a thumbnail. The default adapter generates `card_01`
+   as the cover.
 
 5. **话题 (hashtags)** — 4-8 at the end: a mix of broad (#AI #程序员) + specific
    (#Cursor #AI编程 #vibecoding). Chinese tags; match what the audience actually searches.
@@ -30,12 +31,21 @@ contract accordingly; the oracle (citation_audit + grounding) still applies unch
 **Tone:** 真诚分享体, not 测评体. "我试了下…", "踩了个坑…", "最香的是…". Avoid the
 去-AI-味 tells (see [[style_patterns]] §3) — 小红书 punishes formulaic AI prose hard.
 
-**Word-count contract:** for a 小红书 piece set the section `word_min/word_max` low
-(e.g. a 3-node post: ~200-320 字 per node) so total body lands ~600–900 字.
+**Word-count contract:** for a 小红书 long-image piece, allow a longer verified draft
+(roughly 900-1,800 字). The adapter chunks it into readable cards; do not force the
+source article into a tiny caption.
 
-**How to post (hand-off to the human):** 小红书 App → ➕发布 → 上传封面 + 配图（封面放第一张）
-→ 标题贴进标题栏 → 正文贴进正文框 → 末尾逐个加 #话题 → 发布。`[Sn]` 标记在贴前可保留为
-文末"参考来源"链接，或精简为一句"资料来自 Cursor 官方 + TechCrunch 等"。
+**How to build the default package:**
+```
+python3 tools/xhs_image_post.py articles/article_<slug>/final.md \
+  --out-dir articles/article_<slug>/assets/xhs
+```
+This emits `card_01.html`... plus PNGs when Chrome is available, `post_xiaohongshu.txt`,
+and `content_manifest.json`.
+
+**How to post (hand-off to the human):** 小红书 App → ➕发布 → 上传 `card_01.png` ...
+`card_N.png`（封面放第一张）→ 标题贴进标题栏 → `post_xiaohongshu.txt` 贴进正文框
+→ 末尾逐个加 #话题 → 发布。`[Sn]` 标记可留在图片里；caption 里用一句来源说明即可。
 
 **Why:** the long-form blog contract (4,500 字, references section) is wrong for 小红书 —
 it would tank reach. The factual-fidelity machinery (citation/grounding) is platform-
@@ -58,13 +68,11 @@ Learned by diffing the generated draft against what she actually posted. These a
   #vibecoding #科技新闻`. NOT `#Cursor #程序员 #AI工具`.
 
 ## Deliverable shape (fixed)
-- Body → a **plain-text** file `post_xiaohongshu.txt` in the article folder (NO markdown
-  `#`/`##`, no `标题:` labels) — 小红书 does not render markdown, so a clean .txt pastes
-  cleanly. Hashtags listed at the bottom but flagged "用 # 选，别直接粘" (pasted `#tags`
-  do NOT link to topics; she must pick them via 小红书's # picker).
-- Images → **PNG** files in `<article>/assets/` (cover.png + 1 real screenshot is enough;
-  2 images total). Official-page screenshots via the playwright browser; in-app shots are
-  hers to take.
+- Images → **default primary deliverable** in `<article>/assets/xhs/`: `card_01.png` ...
+  `card_N.png` when Chrome is available, with matching `.html` card sources always kept.
+- Caption → `post_xiaohongshu.txt` in the same folder (NO markdown headings) — short
+  save/read hook + route + topic suggestions.
+- Manifest → `content_manifest.json`: card count, output format, citations, publish status.
 
 **Source:** 小红书 试水; first applied to the Cursor-mobile-app article; calibrated
 2026-06-30 by diffing the generated draft against the author's actual published post.
