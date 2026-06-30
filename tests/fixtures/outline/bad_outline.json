@@ -1,0 +1,8 @@
+{
+  "slug": "bad",
+  "through_line": "duplicate ids and a malformed source id",
+  "items": [
+    {"id": "1", "section": 1, "point": "first point", "source_ids": ["S1"]},
+    {"id": "1", "section": 2, "point": "", "source_ids": ["nope"]}
+  ]
+}

@@ -30,8 +30,16 @@ For each of the 3-5 section nodes in STATE.md, write two files in `contracts/`:
    {"word_min":350,"word_max":650,"required_keywords":["智能体","推理模型"],"must_cite":["S1","S3"]}
    ```
 
-Also assemble `outline.md`: the section order + the through-line (how each section
-hands to the next), so the article reads as one argument, not stitched fragments.
+Also write `outline.json` — the machine-readable outline that the grounding 2→3 gate
+checks each draft claim against. Each item needs a STABLE `id` (the writer/grounding-checker
+reference these exact ids), a `section`, the `point`, and its supporting `source_ids`:
+```json
+{"slug":"<slug>","through_line":"<one-sentence spine>","items":[
+  {"id":"1","section":1,"point":"<outline point>","source_ids":["S1","S2"]}]}
+```
+Validate it with `python3 tools/outline_ids.py outline.json` (lints the schema; prints the
+ids, which generate `--allowed-outline-ids` at the gate — never hand-type that list). Keep
+an optional human-readable `outline.md` if useful, but `outline.json` is the source of truth.
 
 Write/update `stage_results/S2-editorial.json` with `stage:"S2-editorial"`, `status`, `files`, and
 any unsupported contract requests as `findings`.

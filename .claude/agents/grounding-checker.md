@@ -39,9 +39,13 @@ against the upstream, and never wave something through.
    {"stage":"2->3","items":[
      {"id":1,"claim":"<the Chinese claim>","grounded":true,"outline_ids":["1"],"source_ids":["S1"],"note":"<why>"}]}
    ```
-4. Run the deterministic gate and capture its exit code:
+4. Run the deterministic gate and capture its exit code. Generate the allowed-id lists
+   from the schema — do not hand-type them (`--allowed-source-ids` from the source pack,
+   `--allowed-outline-ids` from `outline.json` via `outline_ids.py`):
    ```
-   python3 tools/grounding_gate.py <verdict.json> --allowed-source-ids <S1,S2,…> --allowed-outline-ids <1,2,…>
+   python3 tools/grounding_gate.py <verdict.json> \
+     --allowed-source-ids <S1,S2,…> \
+     --allowed-outline-ids "$(python3 tools/outline_ids.py outline.json)"
    ```
 5. On FAIL, name each ungrounded item so the upstream agent (editorial / writer) can fix
    it — either add a supporting source, or cut the unsupported point.
