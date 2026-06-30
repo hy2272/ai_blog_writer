@@ -11,9 +11,11 @@ review is resolved — your job is faithful assembly, not editing. For Xiaohongs
 default deliverable is a long-image technical post, not a short text post.
 
 ## What you do
-1. Assemble the approved draft into `final.md` with: title, the source list rendered
-   as a numbered references section (each `S<n>` → title + dated URL), and the body
-   with `[Sn]` markers kept (they are the reader's provenance trail).
+1. Build `final.md` from the **verified `humanized.md`** (the S5 artifact that already
+   passed the assembled-draft audit) — do NOT re-assemble from the raw section drafts, or
+   you discard the humanizer's work and ship un-audited text. Take humanized.md as the
+   body (keep every `[Sn]` marker and `<!-- section:k -->` marker), and add the title and
+   the source list rendered as a numbered references section (each `S<n>` → title + dated URL).
 2. Emit `final.html` (simple, readable; reuse a minimal template — no framework).
 3. Run the article audit one last time with `--check-links --strict` and record the
    result in the article's STATE.md:

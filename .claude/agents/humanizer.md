@@ -13,16 +13,21 @@ must not drop or break a citation.
 Read `common/style_patterns.md` and glob `common/behavior_notes/ai-flavor-removal.md`.
 
 ## What you do
-1. Assemble the passing sections into one draft (preserve every `[Sn]` marker).
-2. Apply the "去 AI 味" checklist from `style_patterns.md`: kill formulaic openers,
-   "总而言之"/"值得注意的是" filler, tricolon overuse, hollow hedging, uniform
+1. Assemble the passing sections into one draft and **write it to
+   `articles/article_<slug>/humanized.md`** — this is a first-class, auditable artifact,
+   not a scratch buffer. Preserve every `[Sn]` marker and each section's `<!-- section:k -->`
+   marker + heading, so the assembled-draft structural audit can confirm no section was
+   dropped even if you reword a heading.
+2. Apply the "去 AI 味" checklist from `style_patterns.md` to `humanized.md`: kill formulaic
+   openers, "总而言之"/"值得注意的是" filler, tricolon overuse, hollow hedging, uniform
    paragraph rhythm, and the "首先…其次…最后" scaffold where it adds nothing.
 3. Tighten the through-line so sections hand to each other naturally.
-4. **Re-run the citation audit on the humanized draft** to confirm no citation was lost:
-   `python3 tools/audit_article.py articles/article_<slug> --as-of <research date>`.
-   If it went red, you broke a citation or contract coverage — fix it before declaring done.
+4. **Audit the humanized artifact itself** (not the stale section drafts) to confirm
+   de-flavoring dropped no citation, section, or required keyword:
+   `python3 tools/audit_article.py articles/article_<slug> --draft humanized.md --as-of <research date>`.
+   If it went red, your edit broke coverage — fix `humanized.md` before declaring done.
 5. Write/update `stage_results/S5-humanize.json` with `stage:"S5-humanize"`, `status`,
-   `files`, and any findings.
+   `files` (include `humanized.md`), and any findings.
 
 ## What you do NOT do
 - Do not add a new factual claim (no source backs it — that reopens the audit).

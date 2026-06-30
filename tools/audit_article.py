@@ -2,10 +2,16 @@
 """Run the article-level audit suite.
 
 This wrapper prevents a common pipeline gap: section drafts pass their contracts, then
-the assembled final draft loses a section, keyword, or citation during humanizing/output.
-It runs citation_audit.py on every section contract and, when final.md exists, re-checks
-the final article against the union of all section coverage requirements plus structural
-checks that every section made it into the assembled post.
+the assembled draft loses a section, keyword, or citation during humanizing/output.
+It runs citation_audit.py on every section contract and, when the assembled draft
+(`--draft`, default final.md) exists, re-checks it against the union of all section
+coverage requirements plus structural checks that every section made it into the post.
+
+The assembled draft is a first-class, auditable artifact at two points: S5 writes
+`humanized.md` and audits it with `--draft humanized.md` (so the de-flavored text — not
+the stale section drafts — is what gets checked); S7 emits `final.md` (the default) from
+that verified humanized draft. Auditing the actual assembled text at each hop is what
+stops a humanizer/output edit from silently dropping a citation or a section.
 """
 import argparse
 import json
@@ -114,6 +120,9 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Audit all section drafts and the final article.")
     ap.add_argument("article_dir", help="articles/article_<slug> directory")
     ap.add_argument("--as-of", help="reference date YYYY-MM-DD for freshness")
+    ap.add_argument("--draft", default="final.md",
+                    help="the assembled draft to audit against the union of section "
+                         "coverage (default: final.md; S5 passes humanized.md)")
     ap.add_argument("--check-links", action="store_true")
     ap.add_argument("--strict", action="store_true")
     args = ap.parse_args(argv)
@@ -163,22 +172,22 @@ def main(argv=None):
             cmd.append("--strict")
         failures += 1 if run(cmd) else 0
 
-    final = root / "final.md"
-    if final.exists():
-        final_text = final.read_text(encoding="utf-8")
-        for finding in final_section_findings(final_text, section_infos):
-            print(f"\n[FAIL] final-structure: {finding}")
+    assembled = root / args.draft
+    if assembled.exists():
+        assembled_text = assembled.read_text(encoding="utf-8")
+        for finding in final_section_findings(assembled_text, section_infos):
+            print(f"\n[FAIL] {args.draft}-structure: {finding}")
             failures += 1
 
-        final_contract = {
+        assembled_contract = {
             "required_keywords": ordered_unique(required_keywords),
             "must_cite": ordered_unique(must_cite),
         }
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".json", delete=False) as fh:
-            json.dump(final_contract, fh, ensure_ascii=False, indent=2)
-            final_contract_path = fh.name
-        cmd = [sys.executable, str(tool), str(final), "--source-pack", str(source_pack),
-               "--contract", final_contract_path]
+            json.dump(assembled_contract, fh, ensure_ascii=False, indent=2)
+            assembled_contract_path = fh.name
+        cmd = [sys.executable, str(tool), str(assembled), "--source-pack", str(source_pack),
+               "--contract", assembled_contract_path]
         if args.as_of:
             cmd += ["--as-of", args.as_of]
         if args.check_links:
@@ -187,7 +196,7 @@ def main(argv=None):
             cmd.append("--strict")
         failures += 1 if run(cmd) else 0
     else:
-        print(f"\n[WARN] final.md not found; skipped final article coverage audit: {final}")
+        print(f"\n[WARN] {args.draft} not found; skipped assembled-draft coverage audit: {assembled}")
 
     if failures:
         print(f"\nARTICLE AUDIT: FAIL ({failures} failing check groups)")

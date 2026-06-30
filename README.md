@@ -160,7 +160,8 @@ tools/
   citation_audit.py    oracle 1 — marker/freshness/coverage/source-authority
   grounding_gate.py    oracle 2 — faithfulness (does downstream trace to upstream)
   factcheck_gate.py    oracle 3 — fact-check verdict gate (cited ≠ true; fails closed)
-  audit_article.py     article-level wrapper over section/final audits
+  audit_article.py     article-level wrapper; audits sections + the assembled --draft
+                       (humanized.md at S5, final.md at S7) as a first-class artifact
   xhs_image_post.py    default Xiaohongshu long-image post package builder
   news_discover.py     S0 topic discovery — fresh dated AI headlines via Apify
   xhs_research.py      one-off 小红书 爆款 calibration for the paradigm note (Apify)

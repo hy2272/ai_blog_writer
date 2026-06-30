@@ -54,10 +54,12 @@ the faithfulness layer; the citation audit at S4 is the marker-existence layer.)
 `tools/citation_audit.py` against the section draft + source pack + contract JSON.
 FAIL → send the findings back to `writer` for another iteration; only PASS advances.
 
-**S5 — humanizer.** Once all sections PASS S4, dispatch `humanizer` on the assembled
-draft: remove "AI 味", self-audit against `style_patterns.md`. Re-run the article audit
-after (humanizing must not drop a citation or contract coverage):
-`python3 tools/audit_article.py articles/article_<slug> --as-of <research date>`.
+**S5 — humanizer.** Once all sections PASS S4, dispatch `humanizer`. It writes the
+assembled, de-flavored draft to `humanized.md` (a first-class artifact), removes "AI 味",
+self-audits against `style_patterns.md`, and **audits humanized.md itself** (so the audit
+checks the de-flavored text, not the stale section drafts):
+`python3 tools/audit_article.py articles/article_<slug> --draft humanized.md --as-of <research date>`.
+A red audit means humanizing dropped a citation/section/keyword — fix before S6.
 
 **S6 — editorial-review (advisory).** Dispatch `editorial-reviewer` (read-only). It
 judges ONLY the axes the audit can't see (freshness of angle, narrative, AI 味,
