@@ -13,6 +13,20 @@ jobs:
       - name: Compile Python tools
         run: python3 -m py_compile tools/*.py platforms/xiaohongshu/*.py
 
+      - name: Apify client fails cleanly without a token (offline, no cost)
+        run: |
+          python3 - <<'PY'
+          import tools.apify_client as ac
+          ac.load_env_key = lambda name="APIFY_API_KEY": None  # simulate no token anywhere
+          try:
+              ac.run_actor("x~y", {}, token=None)
+          except ac.ApifyError as e:
+              assert "APIFY_API_KEY" in str(e), str(e)
+              print("OK: raised ApifyError without a token")
+          else:
+              raise SystemExit("expected ApifyError when no token is configured")
+          PY
+
       - name: Positive citation audit fixture passes
         run: |
           python3 tools/citation_audit.py articles/article_demo/sections/sec1_draft.md \
