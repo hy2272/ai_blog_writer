@@ -90,12 +90,21 @@ generate a handoff doc. Do not auto-generate; do not nag mid-stage.
 - editorial-reviewer: `REVIEW COMPLETE — <b> BLOCKER / <w> WARN / <n> NOTE`
 - output: `OUTPUT COMPLETE — final.md written`
 
-Each agent must also write a machine-readable result JSON next to its primary output:
-`sections/sec<k>_result.json` for section stages or `stage_results/<stage>.json` for
-article-level stages (`S1-research.json`, `S2-editorial.json`, `S5-humanize.json`,
-`S6-editorial-review.json`, `S7-output.json`). The JSON carries `stage`, `status`
-(`pass`/`fail`/`blocked`), `files`, and `findings`. Completion strings are for humans;
-result JSON is the resumable protocol.
+Each agent must also write a machine-readable result JSON next to its primary output. For
+section stages, use a **stage-specific filename so verdicts never overwrite each other**
+(a single shared `sec<k>_result.json` was last-writer-wins, which made resume lie about
+which stage was green):
+- `sections/sec<k>_writer.json`     (S3 writer)
+- `sections/sec<k>_factcheck.json`  (S3 fact-check — also the `factcheck_gate.py` input)
+- `sections/sec<k>_grounding.json`  (S3→4 grounding 2→3)
+- `sections/sec<k>_audit.json`      (S4 citation audit)
+
+Article-level stages use `stage_results/<stage>.json` (`S1-research.json`,
+`S2-editorial.json`, `S2-grounding-1to2.json`, `S5-humanize.json`, `S6-editorial-review.json`,
+`S7-output.json`). Every result JSON carries `stage`, `section` (for section stages),
+`status` (`pass`/`fail`/`blocked`), `files`, and `findings`. Completion strings are for
+humans; result JSON is the resumable protocol. `python3 tools/status.py
+articles/article_<slug>` aggregates them into a section × stage matrix.
 
 ## Hard rules
 1. Never skip the S1 human gate (angle) or the S4 citation gate (facts).

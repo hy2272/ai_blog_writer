@@ -14,4 +14,6 @@ Steps (orchestrator):
 4. Dispatch `grounding-checker` for 2→3. It must cite `outline_ids`; `source_ids` are optional.
 5. Dispatch `citation-auditor` for section <k>.
 6. If grounding or AUDIT FAIL → loop back to `writer` with the findings until PASS.
-7. Update STATE.md and `sections/sec<k>_result.json` with the section verdict.
+7. Update STATE.md; each agent writes its own per-stage file (`sec<k>_writer.json`,
+   `sec<k>_factcheck.json`, `sec<k>_grounding.json`, `sec<k>_audit.json`). Run
+   `python3 tools/status.py articles/article_<slug>` for the section × stage matrix.
