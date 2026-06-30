@@ -11,6 +11,18 @@ carry the detail.
 
 ---
 
+## 2026-07-01 — #14 humanizer artifact: audit the de-flavored text, not stale sections
+- **What:** S5 humanizer now writes a first-class `humanized.md`; `audit_article.py --draft`
+  generalizes the assembled-draft audit (default `final.md`) so S5 audits `humanized.md`
+  and S7 builds `final.md` *from* that verified artifact instead of re-assembling sections.
+- **Why:** Cursor finding #1 — the humanizer's de-flavored prose was never a named artifact,
+  so the re-run audit read the old section drafts and S7 re-assembled; humanized text could
+  fall through the verification chain.
+- **Risk:** structural check relies on the humanizer preserving `<!-- section:k -->` markers
+  / headings; spec now requires it.
+- **Verified:** CI `--draft humanized.md` PASSes; a humanized draft that drops `[S2]` FAILs;
+  default `final.md` path unchanged.
+
 ## 2026-07-01 — #13 factcheck_gate: make "cited but wrong" a machine gate
 - **What:** `tools/factcheck_gate.py` — sibling of `grounding_gate.py`. The fact-checker
   emits a per-claim verdict JSON (`sec<k>_factcheck.json`, verdict ∈ SUPPORTED /

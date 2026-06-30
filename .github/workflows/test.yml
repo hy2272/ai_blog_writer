@@ -59,6 +59,23 @@ jobs:
       - name: Positive final article fixture passes
         run: python3 tools/audit_article.py tests/fixtures/article_good_final --as-of 2026-06-09
 
+      - name: Humanized draft is audited as a first-class artifact
+        run: python3 tools/audit_article.py tests/fixtures/article_good_final --draft humanized.md --as-of 2026-06-09
+
+      - name: A humanized draft that dropped a citation FAILs
+        run: |
+          rm -rf /tmp/article_humanized_bad
+          cp -r tests/fixtures/article_good_final /tmp/article_humanized_bad
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("/tmp/article_humanized_bad/humanized.md")
+          p.write_text(p.read_text(encoding="utf-8").replace("[S2]", ""), encoding="utf-8")
+          PY
+          if python3 tools/audit_article.py /tmp/article_humanized_bad --draft humanized.md --as-of 2026-06-09; then
+            echo "humanized draft missing [S2] unexpectedly passed"
+            exit 1
+          fi
+
       - name: Xiaohongshu long-image adapter builds package
         run: |
           python3 tools/xhs_image_post.py tests/fixtures/article_good_final/final.md \
