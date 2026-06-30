@@ -91,11 +91,15 @@ Build the default 小红书 technical long-image package after `final.md` is ver
 
 ```
 python3 tools/xhs_image_post.py articles/article_<slug>/final.md \
-  --out-dir articles/article_<slug>/assets/xhs
+  --out-dir articles/article_<slug>/assets/xhs \
+  --meta articles/article_<slug>/xhs_meta.json --check-caption
 ```
 
 This writes card HTML, PNG cards when Chrome is available, a paste-ready caption, and
-`content_manifest.json` for the manual publish queue.
+`content_manifest.json` for the manual publish queue. The optional `xhs_meta.json` sidecar
+supplies the hook `cover_title` + shortened `caption` (see
+`common/behavior_notes/xiaohongshu-baokuan-paradigm.md`); `--check-caption` fails if the
+caption uses a number absent from the verified body.
 
 ### Optional: a final Chinese polish via Gemini
 
