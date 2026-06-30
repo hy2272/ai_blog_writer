@@ -41,7 +41,8 @@ machine oracles:
 | Tool | Checks | Exit |
 |---|---|---|
 | `tools/citation_audit.py` | every claim has an `[Sn]` marker (no 裸论断), sources are dated + fresh, word-count / required-keyword / must-cite coverage. CJK-aware. | 0 = PASS / 1 = FAIL |
-| `tools/grounding_gate.py` | faithfulness — each downstream item (Chinese) traces to an upstream source (English). | 0 = PASS / 1 = FAIL |
+| `tools/grounding_gate.py` | faithfulness — outline points trace to sources (`source_ids`), draft claims trace to outline (`outline_ids`) with optional source provenance. | 0 = PASS / 1 = FAIL |
+| `tools/audit_article.py` | wrapper that audits every section contract and re-checks final structure, section headings/markers, preserved citations, and unioned coverage requirements. | 0 = PASS / 1 = FAIL |
 
 ## Pipeline
 
@@ -50,7 +51,7 @@ flowchart TD
   S0[S0 decompose · pick topic, split into section nodes] --> S1[S1 research · live web → dated EN source pack]
   S1 -->|⏸ human approves angle| S2[S2 editorial · per-section contract]
   S2 --> G1[grounding 1→2 · outline grounded in sources?]
-  G1 --> S3[S3 write ∥ fact-check · Chinese draft, every claim cited]
+  G1 --> S3[S3 write → fact-check → fix · Chinese draft, every claim cited]
   S3 --> G2[grounding 2→3 · draft grounded in outline?]
   G2 --> S4[S4 citation audit · HARD gate]
   S4 --> S5[S5 humanize · 去 AI 味]
@@ -82,7 +83,8 @@ python3 tools/citation_audit.py articles/article_demo/sections/sec1_draft.md \
   --source-pack articles/article_demo/source_pack.json \
   --contract articles/article_demo/contracts/sec1_contract.json --as-of 2026-06-09   # PASS
 python3 tools/grounding_gate.py articles/article_demo/sections/grounding_2to3.json \
-  --allowed-ids S1,S2,S3                                                              # PASS
+  --allowed-outline-ids 1 --allowed-source-ids S1,S2,S3                               # PASS
+python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09               # PASS
 ```
 
 ### Optional: a final Chinese polish via Gemini
@@ -107,7 +109,7 @@ RUNBOOK.md             step-by-step
 .claude/
   orchestrator.md      main-session playbook + gates + failure-mode防范
   runtime.md           how to run things, where files go
-  agents/              8 sub-agent specs (research, editorial, writer, fact-checker,
+  agents/              9 sub-agent specs (research, editorial, writer, fact-checker,
                        grounding-checker, citation-auditor, humanizer, editorial-reviewer, output)
   commands/            /write-article /new-article /status /write-section /handoff
 common/
@@ -116,6 +118,7 @@ common/
 tools/
   citation_audit.py    oracle 1 — marker/freshness/coverage
   grounding_gate.py    oracle 2 — faithfulness
+  audit_article.py     article-level wrapper over section/final audits
   gemini_polish.py     optional final fluency pass
 articles/
   _TEMPLATE/           per-article scaffold

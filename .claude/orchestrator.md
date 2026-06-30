@@ -35,14 +35,16 @@ per-item verdict + runs `grounding_gate.py` (PASS/FAIL). FAIL → back to `edito
 add a source or cut the unsupported point. This catches an angle that drifted beyond
 what research found — the gap citation_audit cannot see.
 
-**S3 — write ∥ fact-check (per section).** For each section, dispatch `writer` and
-`fact-checker` in parallel. Writer implements the contract against the source pack;
-fact-checker verifies every claim traces to a source. If the contract is wrong, the
-writer STOPs and flags — it does not write around it.
+**S3 — write → fact-check → fix (per section).** For each section, dispatch `writer`
+first. Once `sections/sec<k>_draft.md` exists, dispatch `fact-checker` against that exact
+draft. If fact-check reports any non-SUPPORTED claim, send the findings back to `writer`
+for a targeted fix before grounding/audit. The fact-checker may pre-read the contract and
+source pack, but it cannot verify claims until the draft exists.
 
-**S3→4 GROUNDING GATE (2→3 faithfulness).** After a section is drafted, dispatch
-`grounding-checker` for stage `2->3`: is each claim in the Chinese draft grounded in the
-outline (and its sources)? FAIL → back to `writer` to cut the invented claim. (This is
+**S3→4 GROUNDING GATE (2→3 faithfulness).** After a section is drafted and fact-checked,
+dispatch `grounding-checker` for stage `2->3`: is each claim in the Chinese draft grounded
+in the outline? The verdict MUST use `outline_ids`; `source_ids` are optional supporting
+evidence, not a substitute. FAIL → back to `writer` to cut the invented claim. (This is
 the faithfulness layer; the citation audit at S4 is the marker-existence layer.)
 
 **S4 — citation audit (HARD gate).** Dispatch `citation-auditor` per section. It runs
@@ -50,8 +52,9 @@ the faithfulness layer; the citation audit at S4 is the marker-existence layer.)
 FAIL → send the findings back to `writer` for another iteration; only PASS advances.
 
 **S5 — humanizer.** Once all sections PASS S4, dispatch `humanizer` on the assembled
-draft: remove "AI 味", self-audit against `style_patterns.md`. Re-run the audit after
-(humanizing must not drop a citation).
+draft: remove "AI 味", self-audit against `style_patterns.md`. Re-run the article audit
+after (humanizing must not drop a citation or contract coverage):
+`python3 tools/audit_article.py articles/article_<slug> --as-of <research date>`.
 
 **S6 — editorial-review (advisory).** Dispatch `editorial-reviewer` (read-only). It
 judges ONLY the axes the audit can't see (freshness of angle, narrative, AI 味,
@@ -59,8 +62,9 @@ argument soundness, tone). It emits BLOCKER/WARN/NOTE — it does NOT edit or de
 YOU decide what to fix, dispatch the fixer (`writer`/`humanizer`), and re-verify
 (citation audit green again). BLOCKER must be resolved; WARN/NOTE are your call (log it).
 
-**S7 — output.** Dispatch `output`: emit `final.md` (+ `final.html`). Update STATE.md
-to done.
+**S7 — output.** Dispatch `output`: emit `final.md` (+ `final.html`). Run
+`python3 tools/audit_article.py articles/article_<slug> --as-of <research date> --check-links --strict`.
+Update STATE.md to done only on green.
 
 **↻ self-improvement (you do this).** If S6 surfaced a recurring "AI 味" or sourcing
 pattern, write it back to `common/behavior_notes/` (copy `_TEMPLATE.md`) or add a line
@@ -81,6 +85,13 @@ generate a handoff doc. Do not auto-generate; do not nag mid-stage.
 - editorial-reviewer: `REVIEW COMPLETE — <b> BLOCKER / <w> WARN / <n> NOTE`
 - output: `OUTPUT COMPLETE — final.md written`
 
+Each agent must also write a machine-readable result JSON next to its primary output:
+`sections/sec<k>_result.json` for section stages or `stage_results/<stage>.json` for
+article-level stages (`S1-research.json`, `S2-editorial.json`, `S5-humanize.json`,
+`S6-editorial-review.json`, `S7-output.json`). The JSON carries `stage`, `status`
+(`pass`/`fail`/`blocked`), `files`, and `findings`. Completion strings are for humans;
+result JSON is the resumable protocol.
+
 ## Hard rules
 1. Never skip the S1 human gate (angle) or the S4 citation gate (facts).
 2. Never let a sub-agent decide what to fix — that is your job (S6).
@@ -93,7 +104,7 @@ generate a handoff doc. Do not auto-generate; do not nag mid-stage.
 Multi-agent systems fail in five known ways. Each is countered by an existing mechanism
 here — keep them intact:
 - **Loops** (agents ping-pong forever) → every section has a **step budget**: max 3
-  write→audit iterations; on the 3rd FAIL, STOP and escalate to the human. Do not
+  write→fact-check→grounding→audit iterations; on the 3rd FAIL, STOP and escalate to the human. Do not
   auto-loop a 4th time.
 - **Goal drift** (each agent re-defines the task) → every agent reads the SAME contract
   + STATE.md goal. The contract is the canonical goal statement; nobody works around it.

@@ -19,32 +19,41 @@ against the upstream, and never wave something through.
 - **1→2** — is each Chinese **outline** point grounded in the English **source pack**?
   Upstream ids = source ids (`S1`, `S2`, …). This catches an editorial angle that drifts
   beyond what research actually found.
-- **2→3** — is each claim in the Chinese **draft** grounded in the **outline** (and its
-  cited sources)? Upstream ids = outline item ids. This catches a draft inventing beyond
-  the brief.
+- **2→3** — is each claim in the Chinese **draft** grounded in the **outline**? Upstream
+  ids = outline item ids. `source_ids` may be included as supporting provenance, but they
+  do not replace `outline_ids`. This catches a draft inventing beyond the brief.
 
 ## What you do
 1. Read the upstream artifact (English source pack, or the outline) and the downstream
    artifact (Chinese outline, or draft).
 2. For each downstream item, decide `grounded` (does upstream support it?) and list the
-   exact upstream `sources` ids it rests on. Translation is fine — judge meaning across
-   languages, not surface words. A downstream point with no upstream support → `grounded: false`.
+   exact upstream ids it rests on. Translation is fine — judge meaning across languages,
+   not surface words. A downstream point with no upstream support → `grounded: false`.
 3. Write the verdict JSON (`grounding_1to2.json` / `grounding_2to3.json`):
    ```json
    {"stage":"1->2","items":[
-     {"id":1,"claim":"<the Chinese point>","grounded":true,"sources":["S1"],"note":"<why, 1 line>"}]}
+     {"id":1,"claim":"<the Chinese point>","grounded":true,"source_ids":["S1"],"note":"<why, 1 line>"}]}
+   ```
+   For `2->3`, use:
+   ```json
+   {"stage":"2->3","items":[
+     {"id":1,"claim":"<the Chinese claim>","grounded":true,"outline_ids":["1"],"source_ids":["S1"],"note":"<why>"}]}
    ```
 4. Run the deterministic gate and capture its exit code:
    ```
-   python3 tools/grounding_gate.py <verdict.json> --allowed-ids <S1,S2,… や outline ids>
+   python3 tools/grounding_gate.py <verdict.json> --allowed-source-ids <S1,S2,…> --allowed-outline-ids <1,2,…>
    ```
 5. On FAIL, name each ungrounded item so the upstream agent (editorial / writer) can fix
    it — either add a supporting source, or cut the unsupported point.
+6. Write/update `stage_results/S2-grounding-1to2.json` for 1→2 or
+   `sections/sec<k>_result.json` for 2→3 with `stage`, `status`, `files`, and
+   machine-readable `findings`.
 
 ## What you do NOT do
 - Do not judge whether the source is factually correct (fact-checker's job).
 - Do not edit the outline or the draft — you report; the upstream agent fixes.
 - Do not pass an item you cannot tie to upstream "because it sounds right".
+- Do not use `source_ids` as a substitute for `outline_ids` in stage `2->3`.
 
 ## Completion string
 `GROUNDING <stage>: PASS`  or  `GROUNDING <stage>: FAIL — <n> ungrounded`

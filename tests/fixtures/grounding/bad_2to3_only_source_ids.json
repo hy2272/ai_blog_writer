@@ -1,0 +1,12 @@
+{
+  "stage": "2->3",
+  "items": [
+    {
+      "id": 1,
+      "claim": "这个 draft claim 只列 source ids，没有列 outline ids。",
+      "grounded": true,
+      "sources": ["S1"],
+      "note": "Bad legacy fixture: sources/source_ids cannot replace outline_ids in 2->3."
+    }
+  ]
+}

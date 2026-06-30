@@ -47,6 +47,7 @@ CITE_RE = re.compile(r"\[(S\d+(?:\s*,\s*S\d+)*)\]")
 # (4.6) and URLs are not split.
 SENT_SPLIT_RE = re.compile(r"(?<=[。！？；])\s*|(?<=[.!?])\s+|\n+")
 FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 
 # A sentence is "claim-like" (asserts a checkable fact) if it carries hard data or a
 # reporting/announcement verb. Heuristic on purpose: it flags CANDIDATES for a human,
@@ -72,7 +73,8 @@ class Finding:
 
 
 def strip_code(text):
-    return FENCE_RE.sub("", text)
+    text = FENCE_RE.sub("", text)
+    return HTML_COMMENT_RE.sub("", text)
 
 
 def parse_citations(text):

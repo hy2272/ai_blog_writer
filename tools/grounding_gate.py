@@ -18,15 +18,18 @@ Verdict JSON schema:
     "stage": "1->2" | "2->3",
     "items": [
       {"id": 1, "claim": "<the downstream point/claim>",
-       "grounded": true, "sources": ["S1","S3"], "note": "<why>"}
+       "grounded": true,
+       "source_ids": ["S1","S3"],
+       "outline_ids": ["1.2"],
+       "note": "<why>"}
     ]
   }
 
 Gate logic — an item FAILS if:
   - grounded is false                        (downstream item not supported upstream)
-  - grounded is true but sources is empty    (claims support but cites nothing — contradiction)
-  - a cited source id is not in --allowed-ids (if provided; e.g. the source-pack ids,
-                                               or the upstream outline item ids)
+  - 1->2: grounded=true but source_ids is empty
+  - 2->3: grounded=true but outline_ids is empty
+  - a cited id is not in the corresponding allow-list
 Pass only if every item is clean.
 """
 import argparse
@@ -42,32 +45,69 @@ def load(path):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Deterministic gate over a grounding verdict.")
     ap.add_argument("verdict", help="path to the grounding verdict JSON")
-    ap.add_argument("--allowed-ids", help="comma-separated upstream ids the verdict may cite "
-                                          "(e.g. S1,S2,S3 for 1->2, or outline item ids for 2->3)")
+    ap.add_argument("--allowed-ids", help="legacy comma-separated upstream ids. For 1->2 this "
+                                          "means source ids; for 2->3 this means outline ids.")
+    ap.add_argument("--allowed-source-ids", help="comma-separated source ids the verdict may cite")
+    ap.add_argument("--allowed-outline-ids", help="comma-separated outline ids the verdict may cite")
     args = ap.parse_args(argv)
 
     v = load(args.verdict)
     items = v.get("items", [])
-    allowed = None
-    if args.allowed_ids:
-        allowed = {x.strip() for x in args.allowed_ids.split(",") if x.strip()}
+    stage = v.get("stage", "?")
+
+    def parse_ids(raw):
+        if not raw:
+            return None
+        return {x.strip() for x in raw.split(",") if x.strip()}
+
+    allowed_sources = parse_ids(args.allowed_source_ids)
+    allowed_outline = parse_ids(args.allowed_outline_ids)
+    legacy_allowed = parse_ids(args.allowed_ids)
+    if legacy_allowed is not None:
+        if stage == "1->2" and allowed_sources is None:
+            allowed_sources = legacy_allowed
+        elif stage == "2->3" and allowed_outline is None:
+            allowed_outline = legacy_allowed
 
     failures = []
     for it in items:
         cid = it.get("id", "?")
-        srcs = it.get("sources") or []
+        # Backward compatibility: older 1->2 verdicts used "sources".
+        source_ids = it.get("source_ids")
+        if source_ids is None and stage == "1->2":
+            source_ids = it.get("sources")
+        source_ids = source_ids or []
+        outline_ids = it.get("outline_ids") or []
+
         if not it.get("grounded", False):
             failures.append((cid, "NOT grounded in upstream", it.get("claim", "")))
             continue
-        if not srcs:
-            failures.append((cid, "grounded=true but no source cited", it.get("claim", "")))
-            continue
-        if allowed is not None:
-            bad = [s for s in srcs if s not in allowed]
-            if bad:
-                failures.append((cid, f"cites unknown upstream id(s): {bad}", it.get("claim", "")))
 
-    stage = v.get("stage", "?")
+        if stage == "1->2":
+            if not source_ids:
+                failures.append((cid, "grounded=true but no source_ids cited", it.get("claim", "")))
+                continue
+        elif stage == "2->3":
+            if not outline_ids:
+                if it.get("sources") and not it.get("source_ids"):
+                    failures.append((cid, "stage 2->3 requires outline_ids; source_ids are optional",
+                                     it.get("claim", "")))
+                else:
+                    failures.append((cid, "grounded=true but no outline_ids cited", it.get("claim", "")))
+                continue
+        else:
+            failures.append((cid, f"unknown stage {stage!r}", it.get("claim", "")))
+            continue
+
+        if allowed_sources is not None:
+            bad = [s for s in source_ids if s not in allowed_sources]
+            if bad:
+                failures.append((cid, f"cites unknown source id(s): {bad}", it.get("claim", "")))
+        if allowed_outline is not None:
+            bad = [s for s in outline_ids if s not in allowed_outline]
+            if bad:
+                failures.append((cid, f"cites unknown outline id(s): {bad}", it.get("claim", "")))
+
     print(f"grounding_gate: stage {stage} — {len(items)} items, {len(failures)} ungrounded")
     for cid, why, claim in failures:
         snippet = (claim or "")[:60]

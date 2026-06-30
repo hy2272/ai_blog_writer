@@ -1,0 +1,20 @@
+{
+  "sources": [
+    {
+      "id": "S1",
+      "url": "https://example.com/source-1",
+      "title": "Source one",
+      "date": "2026-06-01",
+      "publisher": "Example",
+      "note": "Supports the first cited fact."
+    },
+    {
+      "id": "S2",
+      "url": "https://example.com/source-2",
+      "title": "Source two",
+      "date": "2026-06-02",
+      "publisher": "Example",
+      "note": "Supports the second cited fact."
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "word_min": 20,
+  "word_max": 200,
+  "required_keywords": ["关键词"],
+  "must_cite": ["S1", "S2"]
+}

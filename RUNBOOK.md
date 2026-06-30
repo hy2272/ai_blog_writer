@@ -14,19 +14,19 @@ The step-by-step. Conventions live in `CLAUDE.md`; the stage logic in
 | S1 research | research | `source_pack.json` + brief (English) | ⏸ human approves angle |
 | S2 editorial | editorial | per-section contracts (Chinese) | (⏸ if complex) |
 | S2→3 grounding 1→2 | grounding-checker | outline grounded in sources | ⏸ PASS to advance |
-| S3 write ∥ fact-check | writer ∥ fact-checker | section draft + factcheck | — |
+| S3 write → fact-check → fix | writer, then fact-checker | section draft + factcheck | — |
 | S3→4 grounding 2→3 | grounding-checker | draft grounded in outline | ⏸ PASS to advance |
 | S4 citation audit | citation-auditor | audit verdict | ⏸ HARD: PASS to advance |
 | S5 humanize | humanizer | de-flavored draft (audit re-run) | — |
 | S6 editorial review | editorial-reviewer | BLOCKER/WARN/NOTE | you decide → fixer |
-| S7 output | output | `final.md` / `final.html` | final audit green |
+| S7 output | output | `final.md` / `final.html` | article audit green |
 
 ## C. Resuming a paused article
 Read `articles/article_<slug>/STATE.md`; it records the last done stage and per-section
 verdicts. Re-enter at the first not-done stage. `/status` prints the table.
 
 ## D. Re-running one section
-`/write-section <k>` runs only that section's write → fact-check → audit loop. Use it
+`/write-section <k>` runs only that section's write → fact-check → grounding → audit loop. Use it
 when S4 fails a single section or S6 flags one section for a fix.
 
 ## E. The self-improvement step (do not skip)
@@ -38,4 +38,4 @@ missed opportunity.
 
 ## F. Definition of done
 See `.claude/runtime.md` — (1) audit PASS every section; (2) all claims SUPPORTED +
-final audit green with `--check-links --strict`; (3) human sign-off at S6.
+`audit_article.py --check-links --strict` green; (3) human sign-off at S6.

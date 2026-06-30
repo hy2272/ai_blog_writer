@@ -22,10 +22,30 @@ Exit code: 0 = PASS, 1 = FAIL.
 The grounding gate (faithfulness, 1→2 and 2→3) turns an LLM verdict into PASS/FAIL:
 ```
 python3 tools/grounding_gate.py <grounding_1to2.json | grounding_2to3.json> \
-  --allowed-ids S1,S2,S3      # source ids (1→2) or outline item ids (2→3)
+  --allowed-source-ids S1,S2,S3 \
+  --allowed-outline-ids 1,2,3
 ```
 Exit 0 = PASS, 1 = FAIL. The `grounding-checker` agent writes the verdict JSON, then
 runs this. Cross-lingual: Chinese downstream judged against English upstream.
+
+Verdict ids are explicit:
+- `1->2`: each item must cite `source_ids` from `source_pack.json`.
+- `2->3`: each item must cite `outline_ids` from `outline.md`; optional `source_ids`
+  can show which original sources still back the claim, but they do not replace outline
+  traceability.
+
+Run the full article audit after humanizing and before output:
+```
+python3 tools/audit_article.py articles/article_<slug> \
+  --as-of <YYYY-MM-DD research date>
+python3 tools/audit_article.py articles/article_<slug> \
+  --as-of <YYYY-MM-DD research date> --check-links --strict
+```
+This runs per-section citation audits and, if `final.md` exists, checks the final article
+against the union of section `required_keywords` and `must_cite`. The final-stage gate
+also checks that each section draft's heading or `<!-- section:<k> -->` marker is present,
+that section markers match the number of contracts when markers are used, and that every
+source id cited by section drafts is still cited somewhere in `final.md`.
 
 Web research uses the `WebSearch` / `WebFetch` tools (research + fact-checker agents).
 Sources are English; the article body is Chinese (see CLAUDE.md "Cross-lingual by design").
@@ -58,10 +78,17 @@ articles/article_<slug>/
     sec<k>_draft.md         the section prose (writer)
     sec<k>_factcheck.md     claim→verdict table (fact-checker)
     sec<k>_audit.md         tool output + verdict (citation-auditor)
+    sec<k>_result.json      machine-readable status/findings for the latest section loop
+  stage_results/
+    S1-research.json            machine-readable status/findings (append new stage files, never overwrite prior stages)
+    S2-editorial.json
+    S5-humanize.json
+    S6-editorial-review.json
+    S7-output.json
   final.md / final.html     the deliverable (output)
 ```
 
 ## Definition of done (3 tiers)
 1. `citation_audit.py` PASS on every section (no FAIL findings).
-2. fact-checker: every claim SUPPORTED; final audit green with `--check-links --strict`.
+2. fact-checker: every claim SUPPORTED; `audit_article.py` green with `--check-links --strict`.
 3. Human editorial sign-off at S6 (angle + argument).
