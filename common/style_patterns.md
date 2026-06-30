@@ -31,6 +31,8 @@ Kill these tells:
 - Uniform rhythm: every paragraph the same length, every sentence the same shape.
 - Symmetry padding: inventing a counterpoint just to balance a sentence.
 - Over-explaining the obvious; restating the heading as the first sentence.
+- **破折号（——）很 AI:** 中文长破折号被生成式模型严重滥用，一眼机翻/生成腔。能不用就别用，
+  改用句号、逗号、冒号断句，或直接另起一句。(Per Hanfei 2026-06-30 — 通用，不止小红书。)
 - **English-calque Chinese (翻译腔):** any phrasing that reads as a direct translation of
   English. Rewrite into what a native speaker actually says. Banned tics, per Hanfei:
   「炸」「硬」「诚实地说 / 诚实讲」, plus the usual AI giveaways 「值得注意的是」「总而言之」
@@ -105,11 +107,14 @@ a numbered line each time a shipped piece teaches a new always-true rule.
    English-calque phrases like 「更稳的做法」).
 5. One idea per paragraph; vary rhythm; don't restate the heading as the first sentence.
 6. Mark analysis as the writer's read ("我的感受是…"), never as a cited fact. [§4]
-7. (小红书) No 破折号 in the body; dates have no space (`6月29日`); 网感 ending;
-   小红书-native hashtags; avoid platform-sensitive words —— don't spell out VPN / 翻墙 /
-   科学上网; for a region-locked tool say it vaguely (e.g. 「有个美国账号就能马上用,懂的都
-   懂」) instead of describing how to get around the lock. See
-   `behavior_notes/xiaohongshu-output-mode.md`. [channel-specific]
+7. (小红书) No 破折号 anywhere (§3, now general); dates have no space (`6月29日`); 网感
+   ending; 小红书-native hashtags. **Censorship-adjacent angles: AVOID, don't just soften.**
+   小红书 moderates under Chinese rules and limits content that reads as commentary on
+   region locks / overseas access / censorship. Earlier guidance was "say it vaguely (有个
+   美国账号就能马上用)"; Hanfei's 2026-06-30 stance supersedes it — DROP the region-access
+   angle and lead with value/玩法; for an inherently region-sensitive topic consider another
+   platform. We adapt, we don't editorialize. See `behavior_notes/xiaohongshu-output-mode.md`
+   and memory `xhs-political-sensitivity`. [channel-specific]
 
 > Provenance of this checklist: each line traces to a shipped piece or a behavior note.
 > When a review (S6) or the human surfaces a recurring miss, add the rule here (always-true)

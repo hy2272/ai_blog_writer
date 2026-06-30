@@ -11,6 +11,25 @@ carry the detail.
 
 ---
 
+## 2026-06-30 — #20 aesthetic track + AI-image card pipeline
+- **What:** a second, non-factual content track and the visuals for it. `tools/gen_image.py`
+  (stdlib Nano Banana / Gemini image gen). `adapter.py --style photo-triptych`: 氛围 triptych
+  cover + single-photo body frames, CSS-grade unify, no seams, configurable font (`meta.font`,
+  embeds `.otf`), author-controlled CJK line breaks + `nowrap_terms`. `assets/image_library/`
+  (raw originals only) gitignored. Two behavior notes (`aesthetic-track`, `ai-image-card-pipeline`);
+  `style_patterns` §3/§7 updated (破折号 now general; censorship-adjacent angle = AVOID not soften).
+- **Why:** the system could only make factual typographic cards. Hanfei wanted beautiful
+  aesthetic/lifestyle posts (生活美学/旅游/诗意). Those have no facts, so the citation/fact/
+  grounding gates are a category error and are skipped; the lone residual fact surface is a
+  quoted film line (verify only that).
+- **Risk:** Gemini image gen is PAID-tier only (no free quota) and costs real money per image
+  (flash ~cents); `image_library` + article assets are deliberately NOT committed (local-only,
+  reproducible via `gen_image.py`); per-term `nowrap` is whack-a-mole (authored line breaks are
+  the real fix). No CI for the image path (needs a key + billing).
+- **Verified:** real Nano Banana generations (paid key); full "把日子过成电影" post rendered
+  end-to-end (cover triptych + 5 frames), all word-splits fixed via authored breaks; font
+  fallback smoke-tested (no `meta.font` → serif, no `@font-face`); adapter syntax-checked.
+
 ## 2026-06-30 — #19 align the CI log gate with the pre-commit hook
 - **What:** the CI "iteration log" gate now uses the SAME system-path filter as
   `.githooks/pre-commit` — it only requires `ITERATION_LOG.md` when a PR changes system

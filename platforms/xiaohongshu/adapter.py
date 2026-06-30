@@ -249,7 +249,257 @@ def _format_paragraph(text: str) -> str:
     return html.escape(stripped)
 
 
-def html_card(card: Card, idx: int, total: int) -> str:
+# ----------------------------------------------------------------------------------------
+# Template family. html_card() dispatches on `style`; each style is a cover treatment plus a
+# matching body treatment. The default "editorial" style is the clean typographic tech card.
+# "photo-triptych" is the 氛围感三段式 art/lifestyle cover: three stacked atmospheric photo
+# bands with a serif title overlaid on the middle band. The composition CONSUMES image files
+# (produced by tools/gen_image.py); when no image is supplied for a band it falls back to a
+# graded gradient so the LAYOUT is always renderable without any image API.
+# ----------------------------------------------------------------------------------------
+
+# Self-contained film grain (inline SVG turbulence, no asset). Overlaid at low opacity with
+# a blend mode so it reads as photographic grain over either a real photo or the gradient.
+GRAIN_URI = (
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E"
+    "%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' "
+    "numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E"
+    "%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"
+)
+
+# Placeholder grades for the three bands when no real photo is supplied — three dusk moods
+# (cool / warm / soft) so the card still reads as "three distinct moments", not one flat block.
+_BAND_PLACEHOLDER = (
+    "linear-gradient(155deg,#27333f 0%,#3c4a55 100%)",
+    "linear-gradient(155deg,#5e4334 0%,#8a5a40 100%)",
+    "linear-gradient(155deg,#a78473 0%,#caa996 100%)",
+)
+
+
+def _img_uri(path: str) -> str:
+    """Resolve a band image path to something Chrome can load. Absolute paths become
+    file:// URIs; a relative path is left as-is (Chrome resolves it against the temp HTML,
+    which is written into out_dir, so assets beside the cards just work)."""
+    p = Path(path)
+    if p.is_absolute() or p.exists():
+        return p.resolve().as_uri()
+    return path
+
+
+# Default serif stack for card display type — overridable per-post via meta["font"].
+_SERIF_FALLBACK = '"Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", "STSong", serif'
+
+
+def _resolve_font(meta: dict) -> tuple[str, str]:
+    """Return (font_face_block, serif_stack) from meta["font"].
+
+    meta["font"] may be a family-name string (must be installed on the rendering machine),
+    or {"family": "...", "file": "/path/to/font.otf"} to EMBED a font file via @font-face so
+    it renders without a system install. Chrome renders with local fonts only, so one of the
+    two must hold for a custom face to appear; otherwise we fall back to the serif stack."""
+    f = (meta or {}).get("font") or {}
+    if isinstance(f, str):
+        f = {"family": f}
+    family = (f.get("family") or "").strip()
+    file = (f.get("file") or "").strip()
+    face = ""
+    if family and file:
+        face = (f"@font-face {{ font-family:'{family}'; "
+                f"src:url('{_img_uri(file)}'); font-weight:400 700; font-display:swap; }}")
+    stack = (f'"{family}", ' if family else "") + _SERIF_FALLBACK
+    return face, stack
+
+
+# CJK line-breaking: a term must never be split across two lines (half on one line, the rest
+# on the next). Bracketed titles/quotes (《》「」『』) are ALWAYS protected; extra plain-noun
+# terms come from meta["triptych"]["nowrap_terms"]. Each protected run gets white-space:nowrap,
+# so if it does not fit it moves WHOLE to the next line. Runs on already-escaped text.
+_BRACKET_RE = re.compile(r"《[^》]*》|「[^」]*」|『[^』]*』|（[^）]*）")
+
+
+def _nowrap_html(escaped_text: str, terms: list[str] | None) -> str:
+    out = _BRACKET_RE.sub(lambda m: f'<span class="nw">{m.group(0)}</span>', escaped_text)
+    for t in terms or []:
+        t = (t or "").strip()
+        if t:
+            esc = html.escape(t)
+            out = out.replace(esc, f'<span class="nw">{esc}</span>')
+    return out
+
+
+def html_cover_triptych(card: Card, idx: int, total: int, meta: dict) -> str:
+    trip = (meta or {}).get("triptych", {}) or {}
+    bands = list(trip.get("bands") or [])
+    overline = html.escape(trip.get("overline") or card.kicker or "")
+    tagline = html.escape(trip.get("tagline") or "")  # English italic accent line
+    title = html.escape(card.title)
+    subtitle = html.escape(card.body[0]) if card.body else ""
+
+    # The cover stays on the stable serif (Songti) for a composed, grown-up hook; the custom
+    # handwritten font is reserved for the body "只言片语" cards (set via meta["font"]).
+    font_face, serif_stack = "", _SERIF_FALLBACK
+
+    band_divs = []
+    for i in range(3):
+        src = bands[i] if i < len(bands) and bands[i] else None
+        if src:
+            photo = f"background-image:url('{_img_uri(src)}');"
+        else:
+            photo = f"background-image:{_BAND_PLACEHOLDER[i]};"
+        overlay = ""
+        if i == 1:  # middle band carries the title
+            sub = f'<div class="t-sub">{subtitle}</div>' if subtitle else ""
+            tag = f'<div class="t-tag">{tagline}</div>' if tagline else ""
+            overlay = (
+                '<div class="t-veil"></div>'
+                f'<div class="t-text">{tag}<h1>{title}</h1>{sub}</div>'
+            )
+        band_divs.append(
+            f'<div class="band b{i+1}"><div class="photo" style="{photo}"></div>{overlay}</div>'
+        )
+    bands_html = "\n  ".join(band_divs)
+
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width={CARD_W}, initial-scale=1" />
+<style>
+{font_face}
+:root {{
+  --serif: {serif_stack};
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  --gold: #e7c79b;
+  --paper: #f3ede2;
+}}
+* {{ box-sizing: border-box; }}
+body {{ margin:0; width:{CARD_W}px; height:{CARD_H}px; background:#15110d; }}
+.trip {{ position:relative; width:{CARD_W}px; height:{CARD_H}px; overflow:hidden; display:flex; flex-direction:column; }}
+.band {{ position:relative; flex:1 1 0; overflow:hidden; }}
+/* Per-band photo. The sepia+desaturate pass pulls disparate shots (a cool street, a warm
+   cafe) toward ONE film grade so three separately-generated images read as a harmonious
+   set, not a cold/warm clash. Bands butt directly together — no seam line. */
+.photo {{ position:absolute; inset:0; background-size:cover; background-position:center;
+  filter:saturate(.88) contrast(1.04) brightness(.97) sepia(.10) hue-rotate(-5deg);
+  transform:scale(1.04); }}
+/* A light warm wash binds the bands without muddying them — the heavy lifting on harmony is
+   done at the source (all three photos generated on one locked palette). */
+.grade {{ position:absolute; inset:0; z-index:3; pointer-events:none; mix-blend-mode:soft-light;
+  background:linear-gradient(180deg, rgba(196,148,96,.30) 0%, rgba(170,128,86,.18) 50%, rgba(196,148,96,.32) 100%); }}
+.t-veil {{ position:absolute; inset:0; z-index:1;
+  background:linear-gradient(90deg, rgba(10,8,6,.55) 0%, rgba(10,8,6,.30) 45%, rgba(10,8,6,.55) 100%); }}
+.t-text {{ position:absolute; inset:0; z-index:2; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; text-align:center; padding:0 90px; }}
+.t-tag {{ font-family:var(--serif); font-style:italic; font-size:38px; color:var(--gold);
+  letter-spacing:.04em; margin-bottom:22px; text-shadow:0 2px 14px rgba(0,0,0,.5); }}
+.t-text h1 {{ font-family:var(--serif); font-weight:700; font-size:88px; line-height:1.18;
+  color:#fdfbf6; margin:0; letter-spacing:.01em; text-shadow:0 3px 22px rgba(0,0,0,.55); }}
+.t-sub {{ margin-top:26px; font-family:var(--sans); font-size:30px; color:rgba(253,251,246,.9);
+  letter-spacing:.02em; text-shadow:0 2px 14px rgba(0,0,0,.5); }}
+/* film grain across the whole card */
+.grain {{ position:absolute; inset:0; z-index:4; pointer-events:none;
+  background-image:url("{GRAIN_URI}"); background-size:140px 140px;
+  mix-blend-mode:overlay; opacity:.13; }}
+/* editorial corner marks */
+.mark {{ position:absolute; z-index:5; font-family:var(--serif); color:rgba(243,237,226,.92);
+  font-size:25px; letter-spacing:.18em; text-shadow:0 1px 8px rgba(0,0,0,.55); }}
+.mark.eyebrow {{ top:54px; left:64px; text-transform:uppercase; font-family:var(--sans);
+  font-weight:700; font-size:24px; }}
+.mark.page {{ bottom:50px; right:64px; }}
+.mark.dot {{ bottom:50px; left:64px; }}
+</style>
+</head>
+<body>
+<main class="trip">
+  {bands_html}
+  <div class="grade"></div>
+  <div class="grain"></div>
+  <div class="mark eyebrow">{overline}</div>
+  <div class="mark dot">· 收藏 ·</div>
+  <div class="mark page">{idx:02d} / {total:02d}</div>
+</main>
+</body>
+</html>
+"""
+
+
+def html_body_photo(card: Card, idx: int, total: int, meta: dict, body_index: int) -> str:
+    """A single-photo body card for the aesthetic track: one atmospheric background with a
+    short poetic passage centered over it — a film frame. Same warm grade + grain as the
+    triptych cover so the whole post reads as one set. Falls back to a gradient if no image."""
+    trip = (meta or {}).get("triptych", {}) or {}
+    imgs = trip.get("body_images") or []
+    src = imgs[body_index] if body_index < len(imgs) and imgs[body_index] else None
+    if src:
+        photo = f"background-image:url('{_img_uri(src)}');"
+    else:
+        photo = f"background-image:{_BAND_PLACEHOLDER[body_index % 3]};"
+    # Author-controlled line breaks: each source line of the passage is ITS OWN display line
+    # (joined with <br>), so a phrase never wraps mid-word — the poet decides every break at a
+    # punctuation boundary. nowrap on bracketed titles/quotes is a belt-and-suspenders guard.
+    terms = trip.get("nowrap_terms")
+    lines = [_nowrap_html(html.escape(ln), terms) for ln in (card.body or [])]
+    text = "<br>".join(lines)
+    overline = html.escape(trip.get("overline") or "")
+    font_face, serif_stack = _resolve_font(meta)
+
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width={CARD_W}, initial-scale=1" />
+<style>
+{font_face}
+:root {{
+  --serif: {serif_stack};
+  --gold: #e7c79b;
+}}
+* {{ box-sizing:border-box; }}
+body {{ margin:0; width:{CARD_W}px; height:{CARD_H}px; background:#15110d; }}
+.frame {{ position:relative; width:{CARD_W}px; height:{CARD_H}px; overflow:hidden; }}
+.photo {{ position:absolute; inset:0; background-size:cover; background-position:center;
+  filter:saturate(.88) contrast(1.04) brightness(.95) sepia(.10) hue-rotate(-5deg); transform:scale(1.04); }}
+.grade {{ position:absolute; inset:0; z-index:1; pointer-events:none; mix-blend-mode:soft-light;
+  background:linear-gradient(180deg, rgba(196,148,96,.30), rgba(170,128,86,.18) 50%, rgba(196,148,96,.32)); }}
+/* a soft vignette so centered text always sits on enough contrast */
+.veil {{ position:absolute; inset:0; z-index:2;
+  background:radial-gradient(120% 80% at 50% 50%, rgba(8,6,4,.10) 0%, rgba(8,6,4,.55) 100%); }}
+.copy {{ position:absolute; inset:0; z-index:3; display:flex; align-items:center; justify-content:center;
+  text-align:center; padding:0 130px; }}
+.copy p {{ font-family:var(--serif); font-weight:500; font-size:78px; line-height:1.66; margin:0;
+  color:#fdfbf6; letter-spacing:.03em; text-shadow:0 3px 22px rgba(0,0,0,.6); }}
+.copy .nw {{ white-space:nowrap; }}
+.grain {{ position:absolute; inset:0; z-index:4; pointer-events:none;
+  background-image:url("{GRAIN_URI}"); background-size:140px 140px; mix-blend-mode:overlay; opacity:.13; }}
+.mark {{ position:absolute; z-index:5; font-family:var(--serif); color:rgba(243,237,226,.9);
+  font-size:25px; letter-spacing:.18em; text-shadow:0 1px 8px rgba(0,0,0,.55); }}
+.mark.eyebrow {{ top:54px; left:64px; }}
+.mark.page {{ bottom:50px; right:64px; }}
+</style>
+</head>
+<body>
+<main class="frame">
+  <div class="photo" style="{photo}"></div>
+  <div class="grade"></div>
+  <div class="veil"></div>
+  <div class="copy"><p>{text}</p></div>
+  <div class="grain"></div>
+  <div class="mark eyebrow">{overline}</div>
+  <div class="mark page">{idx:02d} / {total:02d}</div>
+</main>
+</body>
+</html>
+"""
+
+
+def html_card(card: Card, idx: int, total: int, style: str = "editorial",
+              meta: dict | None = None) -> str:
+    if style == "photo-triptych":
+        if card.kind == "cover":
+            return html_cover_triptych(card, idx, total, meta or {})
+        # body cards on this style are single-photo film frames; cover is always card 1,
+        # so the Nth body card maps to body_images[idx-2].
+        return html_body_photo(card, idx, total, meta or {}, body_index=idx - 2)
     is_cover = card.kind == "cover"
     paras = "\n".join(f"<p>{_format_paragraph(p)}</p>" for p in card.body)
     # A large faded page number anchors the composition and fills the lower field so a
@@ -536,8 +786,11 @@ def generate_package(
     tags: list[str],
     render_timeout: int,
     meta: dict | None = None,
+    style: str | None = None,
 ) -> dict:
     meta = meta or {}
+    # Precedence: explicit --style > a "style" field in the meta sidecar > editorial default.
+    style = style or meta.get("style") or "editorial"
     text = input_path.read_text(encoding="utf-8")
     title, sections, refs, citations, parsed_tags = parse_markdown(text)
     # Precedence: explicit --tags > hashtags authored in the draft > DEFAULT_TAGS. Either
@@ -568,7 +821,7 @@ def generate_package(
         persisted_html.append(path.name)
 
     for i, card in enumerate(cards, start=1):
-        markup = html_card(card, i, total)
+        markup = html_card(card, i, total, style=style, meta=meta)
         png_path = out_dir / f"card_{i:02d}.png"
         if not render:
             persist_html(i, markup)
@@ -622,7 +875,9 @@ def main(argv=None) -> int:
     ap.add_argument("--no-render", action="store_true", help="write HTML only; do not call Chrome")
     ap.add_argument("--render-timeout", type=int, default=20, help="seconds to wait per Chrome screenshot")
     ap.add_argument("--tags", help="comma-separated suggested Xiaohongshu topics")
-    ap.add_argument("--meta", help="JSON sidecar with cover_title / cover_subtitle / caption")
+    ap.add_argument("--meta", help="JSON sidecar with cover_title / cover_subtitle / caption / triptych")
+    ap.add_argument("--style", choices=["editorial", "photo-triptych"],
+                    help="card visual style (default: editorial; meta.style is a fallback)")
     ap.add_argument("--check-caption", action="store_true",
                     help="exit nonzero if the caption contains a number absent from the verified body")
     args = ap.parse_args(argv)
@@ -633,7 +888,8 @@ def main(argv=None) -> int:
         tags = [x for x in tags if x]
     meta = json.loads(Path(args.meta).read_text(encoding="utf-8")) if args.meta else {}
     result = generate_package(
-        Path(args.input), Path(args.out_dir), not args.no_render, tags, args.render_timeout, meta=meta,
+        Path(args.input), Path(args.out_dir), not args.no_render, tags, args.render_timeout,
+        meta=meta, style=args.style,
     )
     print("xhs_image_post:", json.dumps(result, ensure_ascii=False))
     unverified = result["caption_unverified_numbers"]

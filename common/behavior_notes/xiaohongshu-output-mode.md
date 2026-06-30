@@ -88,9 +88,14 @@ From Hanfei's feedback on the Nano-Banana cards. These are HARD:
   rendered cards; PNG-only output; cards must FILL the height (`MAX_BODY_CHARS` calibrated).
   Visual language borrows the course `beautiful-html` `cartesian` template (warm neutral,
   CJK serif titles, eyebrow + accent bar, faded page-number watermark).
-- **平台敏感词:** never spell out VPN / 翻墙 / 科学上网 in the body. For a region-locked tool
-  say it vaguely — 「有个美国账号就能马上用,懂的都懂」— don't describe getting around the
-  lock. (Also in [[style_patterns]] §7.)
+- **平台敏感词 / 审查敏感角度 (UPDATED 2026-06-30, supersedes "say it vaguely"):** never
+  spell out VPN / 翻墙 / 科学上网. AND — stronger than before — **avoid the region-access /
+  censorship-adjacent angle altogether**, don't just vague it up. The earlier advice was to
+  say 「有个美国账号就能马上用,懂的都懂」; Hanfei's stance now: that framing (e.g. the published
+  「有个美国（非中国区）账号就能马上用」line) is itself censorship-adjacent and 小红书 limits it.
+  DROP it, lead with value/玩法; for an inherently region-sensitive topic, consider another
+  platform. We adapt, we don't editorialize. (Also in [[style_patterns]] §7; memory
+  `xhs-political-sensitivity`; [[xhs-narrative-value-first]].)
 - **禁用「岁月静好」**(及反讽引申义) — the word now reads ironically; use 「治愈系」「松弛感」
   「温柔的氛围」for a cozy-image vibe. (Also in [[style_patterns]] §3.)
 - **句子结构别用英文式倒装 / 一路补充补语;** write natural short Chinese sentences; vague
