@@ -108,11 +108,74 @@ def parse_markdown(text: str) -> tuple[str, list[Section], list[str], set[str]]:
     return title, sections, refs, citations
 
 
+# A "sentence" is text up to a terminal punctuation mark, keeping any citation
+# markers ([S1], [S1,S3]) that trail the punctuation attached to their claim so a
+# split never orphans a citation onto the next card.
+SENTENCE_RE = re.compile(r".+?(?:[。！？!?]+(?:\s*\[S[^\]]*\])*|$)", re.S)
+
+
+def split_into_sentences(text: str) -> list[str]:
+    return [m.group(0).strip() for m in SENTENCE_RE.finditer(text) if m.group(0).strip()]
+
+
+def hard_split(text: str, max_chars: int) -> list[str]:
+    """Last resort for a single sentence with no terminal punctuation that is still
+    wider than a card: cut on display width so it can never overflow."""
+    out: list[str] = []
+    current: list[str] = []
+    n = 0
+    for ch in text:
+        w = 2 if "一" <= ch <= "鿿" else 1
+        if current and n + w > max_chars:
+            out.append("".join(current))
+            current = []
+            n = 0
+        current.append(ch)
+        n += w
+    if current:
+        out.append("".join(current))
+    return out
+
+
+def split_long_paragraph(para: str, max_chars: int) -> list[str]:
+    """Break a paragraph wider than one card into card-sized pieces on sentence
+    boundaries (hard-splitting a lone over-wide sentence as a fallback)."""
+    if display_len(para) <= max_chars:
+        return [para]
+    pieces: list[str] = []
+    current: list[str] = []
+    n = 0
+    for sent in split_into_sentences(para):
+        s_len = display_len(sent)
+        if current and n + s_len > max_chars:
+            pieces.append("".join(current))
+            current = []
+            n = 0
+        if s_len > max_chars:
+            if current:
+                pieces.append("".join(current))
+                current = []
+                n = 0
+            pieces.extend(hard_split(sent, max_chars))
+            continue
+        current.append(sent)
+        n += s_len
+    if current:
+        pieces.append("".join(current))
+    return pieces
+
+
 def chunk_paragraphs(paragraphs: list[str], max_chars: int = MAX_BODY_CHARS) -> list[list[str]]:
+    # Expand any over-wide paragraph into card-sized pieces first, so a single long
+    # paragraph can never silently overflow a fixed-height card (cards are the product).
+    expanded: list[str] = []
+    for para in paragraphs:
+        expanded.extend(split_long_paragraph(para, max_chars))
+
     chunks: list[list[str]] = []
     current: list[str] = []
     n = 0
-    for para in paragraphs:
+    for para in expanded:
         p_len = display_len(para)
         if current and n + p_len > max_chars:
             chunks.append(current)
@@ -145,9 +208,16 @@ def build_cards(title: str, sections: list[Section], refs: list[str], citations:
         if refs:
             body.extend(refs[:5])
         body.append("发布前保留来源清单；平台正文可改成“资料来自官方公告/论文/新闻源”。")
-        cards.append(Card("refs", "参考来源", body, "Provenance"))
+        ref_chunks = chunk_paragraphs(body)
+        for j, chunk in enumerate(ref_chunks, start=1):
+            suffix = f" · {j}" if len(ref_chunks) > 1 else ""
+            cards.append(Card("refs", "参考来源", chunk, f"Provenance{suffix}"))
 
     return cards
+
+
+def card_body_width(card: Card) -> int:
+    return sum(display_len(p) for p in card.body)
 
 
 def html_card(card: Card, idx: int, total: int) -> str:
@@ -291,6 +361,7 @@ def write_manifest(out_dir: Path, title: str, cards: list[Card], rendered: list[
         "card_count": len(cards),
         "rendered_count": len(rendered),
         "image_size": {"width": CARD_W, "height": CARD_H},
+        "max_body_chars": max((card_body_width(c) for c in cards), default=0),
         "cards": [
             {
                 "index": i,
