@@ -69,6 +69,24 @@ jobs:
       - name: Positive article audit fixture passes
         run: python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09
 
+      - name: new_article.py scaffolds a complete workspace
+        run: |
+          rm -rf /tmp/scaffold_ci
+          python3 tools/new_article.py ci-smoke --articles-dir /tmp/scaffold_ci
+          for f in STATE.md DECISIONS.md source_pack.json outline.json contracts sections stage_results; do
+            test -e "/tmp/scaffold_ci/article_ci-smoke/$f" || { echo "scaffold missing $f"; exit 1; }
+          done
+          python3 tools/outline_ids.py /tmp/scaffold_ci/article_ci-smoke/outline.json --check
+
+      - name: outline_ids.py validates and emits ids
+        run: |
+          ids="$(python3 tools/outline_ids.py articles/article_demo/outline.json)"
+          test "$ids" = "1" || { echo "expected ids '1', got '$ids'"; exit 1; }
+          if python3 tools/outline_ids.py tests/fixtures/outline/bad_outline.json; then
+            echo "malformed outline unexpectedly passed"
+            exit 1
+          fi
+
       - name: Positive final article fixture passes
         run: python3 tools/audit_article.py tests/fixtures/article_good_final --as-of 2026-06-09
 

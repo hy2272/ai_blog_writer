@@ -11,6 +11,20 @@ carry the detail.
 
 ---
 
+## 2026-07-01 — #16 outline.json schema + scaffold validator (Cursor #5 + #6)
+- **What:** #5 — `outline.json` is now the machine-readable outline (stable `id` per item +
+  source_ids); `tools/outline_ids.py` lints it and emits the id list, so
+  `--allowed-outline-ids` is generated, not hand-typed (editorial + grounding-checker
+  specs updated). #6 — `tools/new_article.py` scaffolds from `_TEMPLATE` and validates the
+  layout; `_TEMPLATE` gained `sections/` + `outline.json`; `/new-article` calls the tool.
+- **Why:** grounding 2→3 depended on stable outline ids with no schema guarantee; new
+  articles started missing `sections/` (template ≠ what /new-article claimed).
+- **Risk:** outline.md is now optional/secondary — outline.json is the source of truth;
+  agents must keep them in sync if both are kept.
+- **Verified:** CI — new_article.py builds a complete workspace (guards template drift);
+  outline_ids.py emits `1` on the demo, FAILs a malformed fixture (dup id / empty point /
+  bad source id).
+
 ## 2026-07-01 — #15 per-stage result files + status aggregator (+ grounding 1→2 fixtures)
 - **What:** each section stage now writes its own `sec<k>_<stage>.json` (writer / factcheck
   / grounding / audit) instead of a shared `sec<k>_result.json`; new `tools/status.py`
