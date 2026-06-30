@@ -179,6 +179,20 @@ handoff/               system handoffs — each iteration recorded for the next 
 Real article workspaces (`articles/article_<slug>/`) are gitignored — this repo ships the
 **system**, not generated posts.
 
+## Contributing / dev setup
+
+Enable the commit guard once per clone so a system change can't land without its iteration-log entry:
+
+```
+git config core.hooksPath .githooks
+```
+
+The `pre-commit` hook rejects a commit that touches system paths (`platforms/`, `tools/`,
+`.claude/`, `.githooks/`, `.github/workflows/`, `common/behavior_notes/`,
+`common/style_patterns.md`, `CLAUDE.md`) unless `handoff/ITERATION_LOG.md` is staged in the
+same commit — the local counterpart to the CI "Every PR appends to the iteration log" check.
+Pure doc/handoff/article commits pass freely. Intentional bypass: `git commit --no-verify`.
+
 ## Status
 
 Runs end to end. Both oracles are tested green and correctly red on planted bugs. A real
