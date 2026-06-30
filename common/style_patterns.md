@@ -35,6 +35,9 @@ Kill these tells:
   English. Rewrite into what a native speaker actually says. Banned tics, per Hanfei:
   「炸」「硬」「诚实地说 / 诚实讲」, plus the usual AI giveaways 「值得注意的是」「总而言之」
   「深入」「赋能」「打造」「拥抱」「无缝」「强大的」「丰富的」.
+- **Safer-calque tic:** avoid 「更稳的做法」「更稳」 as a generic recommendation. It often
+  reads like a direct translation of "safer / safer way". Replace it with the actual
+  judgement: 「风险更低」「不容易翻车」「先保留人工确认」「先把 X 跑通」, or cut the filler.
 
 ## 4. Citation discipline (non-negotiable — it is what makes the oracle work)
 - Every factual sentence (number, date, named release, quote, attribution) carries an
@@ -61,7 +64,8 @@ a numbered line each time a shipped piece teaches a new always-true rule.
 1. Every factual sentence carries an inline `[Sn]` marker (no 裸论断). [non-negotiable]
 2. No claim ships without a dated source; un-anchor superlatives (date them). [§5]
 3. Open on a concrete dated fact, not a generic "随着…的发展". [§2]
-4. Kill the 去-AI-味 tells in §3 (formulaic openers, empty transitions, tricolon reflex). 
+4. Kill the 去-AI-味 tells in §3 (formulaic openers, empty transitions, tricolon reflex,
+   English-calque phrases like 「更稳的做法」).
 5. One idea per paragraph; vary rhythm; don't restate the heading as the first sentence.
 6. Mark analysis as the writer's read ("我的感受是…"), never as a cited fact. [§4]
 7. (小红书) No 破折号 in the body; dates have no space (`6月29日`); 网感 ending;
