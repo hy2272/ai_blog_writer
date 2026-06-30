@@ -95,6 +95,12 @@ citation audit is a HARD gate (Stage 4) — a draft that fails it does not advan
   editorial calls → present 2-3 options with trade-offs, log the choice.
 - **Freshness provenance:** every source is dated; the audit's `--as-of` pins a
   reference date so a run is reproducible and not system-clock dependent.
+- **Every system-iteration PR updates the iteration log:** a PR that changes the system
+  (an agent, a tool, a gate, a behavior note) appends one short entry to
+  `handoff/ITERATION_LOG.md` (`what / why / risk / verified`) **in the same PR**. This is
+  the per-PR continuity pulse so the next architect can resume from the repo alone; the
+  full per-session `handoff/handoff-<date>.md` docs (via `/handoff`) remain for session
+  boundaries. The log is the stream; the handoff is the snapshot.
 
 ## Pipeline (who does what)
 Orchestrator (main session) owns state, dispatches subagents, stops at every gate.
