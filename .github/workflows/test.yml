@@ -12,14 +12,26 @@ jobs:
         with:
           fetch-depth: 0   # need base history for the iteration-log diff check
 
-      - name: Every PR appends to the iteration log
+      - name: System-changing PRs append to the iteration log
         if: github.event_name == 'pull_request'
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qx "handoff/ITERATION_LOG.md"; then
-            echo "OK: handoff/ITERATION_LOG.md was updated"
+          changed="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")"
+          # Same SYSTEM-path set as .githooks/pre-commit, so the two guards agree:
+          # pure doc / handoff / article PRs are NOT system changes and pass freely.
+          system="$(printf '%s\n' "$changed" | grep -E \
+            '^(platforms/|tools/|\.claude/|\.githooks/|\.github/workflows/|common/behavior_notes/|common/style_patterns\.md|CLAUDE\.md)' \
+            || true)"
+          if [ -z "$system" ]; then
+            echo "OK: no system files changed (pure doc/handoff/article PR) — log entry not required."
+            exit 0
+          fi
+          if printf '%s\n' "$changed" | grep -qx "handoff/ITERATION_LOG.md"; then
+            echo "OK: system files changed and the iteration log was updated."
           else
-            echo "::error::This PR does not append to handoff/ITERATION_LOG.md — see the convention in CLAUDE.md."
+            echo "::error::System files changed but handoff/ITERATION_LOG.md is not in this PR — append a what/why/risk/verified entry (CLAUDE.md convention)."
+            echo "Changed system files:"
+            printf '  %s\n' $system
             exit 1
           fi
 
