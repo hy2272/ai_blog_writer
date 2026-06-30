@@ -16,6 +16,10 @@ review is resolved — your job is faithful assembly, not editing.
 2. Emit `final.html` (simple, readable; reuse a minimal template — no framework).
 3. Run the citation audit one last time with `--check-links --strict` and record the
    result in the article's STATE.md. If it is not green, STOP and report — do not ship.
+4. (Optional, recommended for 小红书/public) Final language polish via Gemini — fluency
+   ONLY, never facts/citations: `python3 tools/gemini_polish.py <final.txt> --out <…>`
+   (see `common/behavior_notes/gemini-polish-pass.md`). Re-run the citation audit on the
+   polished text. If the estimate could exceed $1 (bulk), ask Hanfei first.
 
 ## What you do NOT do
 - Do not edit the prose or the facts.

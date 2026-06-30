@@ -31,6 +31,10 @@ Kill these tells:
 - Uniform rhythm: every paragraph the same length, every sentence the same shape.
 - Symmetry padding: inventing a counterpoint just to balance a sentence.
 - Over-explaining the obvious; restating the heading as the first sentence.
+- **English-calque Chinese (翻译腔):** any phrasing that reads as a direct translation of
+  English. Rewrite into what a native speaker actually says. Banned tics, per Hanfei:
+  「炸」「硬」「诚实地说 / 诚实讲」, plus the usual AI giveaways 「值得注意的是」「总而言之」
+  「深入」「赋能」「打造」「拥抱」「无缝」「强大的」「丰富的」.
 
 ## 4. Citation discipline (non-negotiable — it is what makes the oracle work)
 - Every factual sentence (number, date, named release, quote, attribution) carries an

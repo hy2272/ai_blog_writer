@@ -30,6 +30,16 @@ runs this. Cross-lingual: Chinese downstream judged against English upstream.
 Web research uses the `WebSearch` / `WebFetch` tools (research + fact-checker agents).
 Sources are English; the article body is Chinese (see CLAUDE.md "Cross-lingual by design").
 
+Final language polish (optional, last step after both oracles are green):
+```
+python3 tools/gemini_polish.py <final.txt> --out <final.polished.txt> --dry-run   # cost estimate
+python3 tools/gemini_polish.py <final.txt> --out <final.polished.txt>             # send to Gemini
+```
+Reads `GEMINI_API_KEY` (+ optional `GEMINI_MODEL`) from a gitignored `.env` at the project
+root — copy `.env.example`. Fluency only; re-run `citation_audit.py` on the polished text.
+Cost guard: refuses if estimate > $1 (≈$0.001/post normally). See
+`common/behavior_notes/gemini-polish-pass.md`. A bulk run that could exceed $1 → ask Hanfei first.
+
 ## Per-article layout
 `/new-article <slug>` scaffolds:
 ```
