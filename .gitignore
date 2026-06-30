@@ -1,3 +1,9 @@
+# Secrets — never commit. API keys live in a local .env (public repo!).
+.env
+.env.*
+*.env
+secrets/
+
 # Python
 __pycache__/
 *.pyc
