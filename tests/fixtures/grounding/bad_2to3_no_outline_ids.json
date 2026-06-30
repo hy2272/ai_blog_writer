@@ -1,0 +1,12 @@
+{
+  "stage": "2->3",
+  "items": [
+    {
+      "id": 1,
+      "claim": "这个 draft claim 没有追溯到 outline。",
+      "grounded": true,
+      "source_ids": [],
+      "note": "Bad fixture: grounded=true without outline_ids must fail."
+    }
+  ]
+}

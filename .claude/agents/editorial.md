@@ -33,7 +33,7 @@ For each of the 3-5 section nodes in STATE.md, write two files in `contracts/`:
 Also assemble `outline.md`: the section order + the through-line (how each section
 hands to the next), so the article reads as one argument, not stitched fragments.
 
-Write/update `stage_result.json` with `stage:"S2-editorial"`, `status`, `files`, and
+Write/update `stage_results/S2-editorial.json` with `stage:"S2-editorial"`, `status`, `files`, and
 any unsupported contract requests as `findings`.
 
 ## What you do NOT do

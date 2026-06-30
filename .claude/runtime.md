@@ -42,7 +42,10 @@ python3 tools/audit_article.py articles/article_<slug> \
   --as-of <YYYY-MM-DD research date> --check-links --strict
 ```
 This runs per-section citation audits and, if `final.md` exists, checks the final article
-against the union of section `required_keywords` and `must_cite`.
+against the union of section `required_keywords` and `must_cite`. The final-stage gate
+also checks that each section draft's heading or `<!-- section:<k> -->` marker is present,
+that section markers match the number of contracts when markers are used, and that every
+source id cited by section drafts is still cited somewhere in `final.md`.
 
 Web research uses the `WebSearch` / `WebFetch` tools (research + fact-checker agents).
 Sources are English; the article body is Chinese (see CLAUDE.md "Cross-lingual by design").
@@ -76,7 +79,12 @@ articles/article_<slug>/
     sec<k>_factcheck.md     claim→verdict table (fact-checker)
     sec<k>_audit.md         tool output + verdict (citation-auditor)
     sec<k>_result.json      machine-readable status/findings for the latest section loop
-  stage_result.json         machine-readable status/findings for article-level stages
+  stage_results/
+    S1-research.json            machine-readable status/findings (append new stage files, never overwrite prior stages)
+    S2-editorial.json
+    S5-humanize.json
+    S6-editorial-review.json
+    S7-output.json
   final.md / final.html     the deliverable (output)
 ```
 

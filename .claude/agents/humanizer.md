@@ -21,8 +21,8 @@ Read `common/style_patterns.md` and glob `common/behavior_notes/ai-flavor-remova
 4. **Re-run the citation audit on the humanized draft** to confirm no citation was lost:
    `python3 tools/audit_article.py articles/article_<slug> --as-of <research date>`.
    If it went red, you broke a citation or contract coverage — fix it before declaring done.
-5. Write/update `stage_result.json` with `stage:"S5-humanize"`, `status`, `files`, and
-   any findings.
+5. Write/update `stage_results/S5-humanize.json` with `stage:"S5-humanize"`, `status`,
+   `files`, and any findings.
 
 ## What you do NOT do
 - Do not add a new factual claim (no source backs it — that reopens the audit).

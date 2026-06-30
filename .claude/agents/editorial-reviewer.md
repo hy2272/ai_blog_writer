@@ -28,8 +28,9 @@ A findings list, each tagged:
 - **NOTE** — optional polish.
 Each finding names the location + a concrete suggested fix.
 
-Write `review.md` and `stage_result.json` with `stage:"S6-editorial-review"`, counts
-for BLOCKER/WARN/NOTE, and machine-readable findings.
+Write `review.md` and `stage_results/S6-editorial-review.json` with
+`stage:"S6-editorial-review"`, counts for BLOCKER/WARN/NOTE, and machine-readable
+findings.
 
 ## What you do NOT do
 - Do not edit the draft, source pack, contracts, or output files. Do not run the audit.

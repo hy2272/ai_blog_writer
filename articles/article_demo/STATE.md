@@ -32,7 +32,7 @@ read this file and re-enter at the first stage not marked done.
 - WARN: none
 
 ## Machine-readable state
-- Article-level stages write `stage_result.json`.
+- Article-level stages write one file per stage under `stage_results/`.
 - Section stages write `sections/sec<k>_result.json`.
 - Treat this Markdown file as the human-readable summary; when there is disagreement,
   inspect the JSON result files and the concrete artifacts before resuming.

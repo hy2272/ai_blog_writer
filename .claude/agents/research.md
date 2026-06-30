@@ -28,8 +28,8 @@ Read `CLAUDE.md` (the hard edge: no claim without a dated source) before startin
 4. Write `research_brief.md`: the proposed angle, the 5-8 strongest sources with one
    line each on what claim they support, and any contradiction between sources (flag
    it — do not silently pick a side).
-5. Write/update `stage_result.json` with `stage:"S1-research"`, `status`, `files`, and
-   any contradictions or source gaps as `findings`.
+5. Write/update `stage_results/S1-research.json` with `stage:"S1-research"`, `status`,
+   `files`, and any contradictions or source gaps as `findings`.
 
 ## What you do NOT do
 - Do not write article prose or an outline (that is editorial's job).

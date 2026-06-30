@@ -1,0 +1,72 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile Python tools
+        run: python3 -m py_compile tools/*.py
+
+      - name: Positive citation audit fixture passes
+        run: |
+          python3 tools/citation_audit.py articles/article_demo/sections/sec1_draft.md \
+            --source-pack articles/article_demo/source_pack.json \
+            --contract articles/article_demo/contracts/sec1_contract.json \
+            --as-of 2026-06-09
+
+      - name: Positive grounding fixture passes
+        run: |
+          python3 tools/grounding_gate.py articles/article_demo/sections/grounding_2to3.json \
+            --allowed-outline-ids 1 \
+            --allowed-source-ids S1,S2,S3
+
+      - name: Positive article audit fixture passes
+        run: python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09
+
+      - name: Positive final article fixture passes
+        run: python3 tools/audit_article.py tests/fixtures/article_good_final --as-of 2026-06-09
+
+      - name: Negative citation fixtures fail
+        run: |
+          if python3 tools/citation_audit.py tests/fixtures/citation/bad_missing_citation.md \
+            --source-pack articles/article_demo/source_pack.json \
+            --as-of 2026-06-09; then
+            echo "bad_missing_citation.md unexpectedly passed"
+            exit 1
+          fi
+
+          if python3 tools/citation_audit.py tests/fixtures/citation/bad_unknown_source_id.md \
+            --source-pack articles/article_demo/source_pack.json \
+            --as-of 2026-06-09; then
+            echo "bad_unknown_source_id.md unexpectedly passed"
+            exit 1
+          fi
+
+      - name: Negative grounding fixtures fail
+        run: |
+          if python3 tools/grounding_gate.py tests/fixtures/grounding/bad_2to3_no_outline_ids.json \
+            --allowed-outline-ids 1 \
+            --allowed-source-ids S1; then
+            echo "bad_2to3_no_outline_ids.json unexpectedly passed"
+            exit 1
+          fi
+
+          if python3 tools/grounding_gate.py tests/fixtures/grounding/bad_2to3_only_source_ids.json \
+            --allowed-outline-ids 1 \
+            --allowed-source-ids S1; then
+            echo "bad_2to3_only_source_ids.json unexpectedly passed"
+            exit 1
+          fi
+
+      - name: Negative final article fixture fails
+        run: |
+          if python3 tools/audit_article.py tests/fixtures/article_bad_final --as-of 2026-06-09; then
+            echo "bad final fixture unexpectedly passed"
+            exit 1
+          fi

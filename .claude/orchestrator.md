@@ -86,9 +86,11 @@ generate a handoff doc. Do not auto-generate; do not nag mid-stage.
 - output: `OUTPUT COMPLETE — final.md written`
 
 Each agent must also write a machine-readable result JSON next to its primary output:
-`sections/sec<k>_result.json` for section stages or `stage_result.json` for article-level
-stages. The JSON carries `stage`, `status` (`pass`/`fail`/`blocked`), `files`, and
-`findings`. Completion strings are for humans; result JSON is the resumable protocol.
+`sections/sec<k>_result.json` for section stages or `stage_results/<stage>.json` for
+article-level stages (`S1-research.json`, `S2-editorial.json`, `S5-humanize.json`,
+`S6-editorial-review.json`, `S7-output.json`). The JSON carries `stage`, `status`
+(`pass`/`fail`/`blocked`), `files`, and `findings`. Completion strings are for humans;
+result JSON is the resumable protocol.
 
 ## Hard rules
 1. Never skip the S1 human gate (angle) or the S4 citation gate (facts).

@@ -22,6 +22,8 @@ review is resolved — your job is faithful assembly, not editing.
    ONLY, never facts/citations: `python3 tools/gemini_polish.py <final.txt> --out <…>`
    (see `common/behavior_notes/gemini-polish-pass.md`). Re-run the citation audit on the
    polished text. If the estimate could exceed $1 (bulk), ask Hanfei first.
+5. Write/update `stage_results/S7-output.json` with `stage:"S7-output"`, `status`,
+   `files`, and any audit/publish-blocking findings.
 
 ## What you do NOT do
 - Do not edit the prose or the facts.

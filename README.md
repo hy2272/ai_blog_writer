@@ -42,7 +42,7 @@ machine oracles:
 |---|---|---|
 | `tools/citation_audit.py` | every claim has an `[Sn]` marker (no 裸论断), sources are dated + fresh, word-count / required-keyword / must-cite coverage. CJK-aware. | 0 = PASS / 1 = FAIL |
 | `tools/grounding_gate.py` | faithfulness — outline points trace to sources (`source_ids`), draft claims trace to outline (`outline_ids`) with optional source provenance. | 0 = PASS / 1 = FAIL |
-| `tools/audit_article.py` | wrapper that audits every section contract and re-checks the final article against the union of required keywords / must-cite sources. | 0 = PASS / 1 = FAIL |
+| `tools/audit_article.py` | wrapper that audits every section contract and re-checks final structure, section headings/markers, preserved citations, and unioned coverage requirements. | 0 = PASS / 1 = FAIL |
 
 ## Pipeline
 

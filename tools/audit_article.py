@@ -2,16 +2,23 @@
 """Run the article-level audit suite.
 
 This wrapper prevents a common pipeline gap: section drafts pass their contracts, then
-the assembled final draft loses a required keyword/citation during humanizing or output.
+the assembled final draft loses a section, keyword, or citation during humanizing/output.
 It runs citation_audit.py on every section contract and, when final.md exists, re-checks
-the final article against the union of all section coverage requirements.
+the final article against the union of all section coverage requirements plus structural
+checks that every section made it into the assembled post.
 """
 import argparse
 import json
+import re
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+
+CITE_RE = re.compile(r"\[(S\d+(?:\s*,\s*S\d+)*)\]")
+SECTION_MARKER_RE = re.compile(r"<!--\s*section:(\d+)\s*-->")
+HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*$", re.MULTILINE)
 
 
 def load_json(path):
@@ -27,6 +34,64 @@ def ordered_unique(values):
             out.append(value)
             seen.add(value)
     return out
+
+
+def parse_citations(text):
+    ids = set()
+    for m in CITE_RE.finditer(text):
+        for tok in m.group(1).split(","):
+            ids.add(tok.strip())
+    return ids
+
+
+def first_heading(text):
+    m = HEADING_RE.search(text)
+    if not m:
+        return None
+    return normalize_heading(m.group(1))
+
+
+def normalize_heading(text):
+    text = re.sub(r"\s*\[[^\]]+\]\s*", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip().lower()
+
+
+def final_section_findings(final_text, section_infos):
+    findings = []
+    markers = [int(x) for x in SECTION_MARKER_RE.findall(final_text)]
+    expected = {info["k"] for info in section_infos}
+    matched = set()
+
+    if markers:
+        marker_set = set(markers)
+        missing = sorted(expected - marker_set)
+        extra = sorted(marker_set - expected)
+        if len(markers) != len(section_infos):
+            findings.append(f"final has {len(markers)} section marker(s), expected {len(section_infos)}")
+        if missing:
+            findings.append(f"final missing section marker(s): {missing}")
+        if extra:
+            findings.append(f"final has unknown section marker(s): {extra}")
+        matched |= marker_set & expected
+
+    final_headings = {normalize_heading(h) for h in HEADING_RE.findall(final_text)}
+    for info in section_infos:
+        if info["heading"] and info["heading"] in final_headings:
+            matched.add(info["k"])
+
+    missing_sections = sorted(expected - matched)
+    if missing_sections:
+        findings.append("final missing section heading/marker for section(s): "
+                        + ",".join(str(x) for x in missing_sections))
+
+    final_citations = parse_citations(final_text)
+    for info in section_infos:
+        missing_citations = sorted(info["citations"] - final_citations)
+        if missing_citations:
+            findings.append(f"final missing citation(s) from section {info['k']}: {missing_citations}")
+
+    return findings
 
 
 def run(cmd):
@@ -68,6 +133,7 @@ def main(argv=None):
     failures = 0
     required_keywords = []
     must_cite = []
+    section_infos = []
 
     for contract in contracts:
         k = section_number(contract)
@@ -80,6 +146,12 @@ def main(argv=None):
         c = load_json(contract)
         required_keywords.extend(c.get("required_keywords", []))
         must_cite.extend(c.get("must_cite", []))
+        draft_text = draft.read_text(encoding="utf-8")
+        section_infos.append({
+            "k": k,
+            "heading": first_heading(draft_text),
+            "citations": parse_citations(draft_text),
+        })
 
         cmd = [sys.executable, str(tool), str(draft), "--source-pack", str(source_pack),
                "--contract", str(contract)]
@@ -93,6 +165,11 @@ def main(argv=None):
 
     final = root / "final.md"
     if final.exists():
+        final_text = final.read_text(encoding="utf-8")
+        for finding in final_section_findings(final_text, section_infos):
+            print(f"\n[FAIL] final-structure: {finding}")
+            failures += 1
+
         final_contract = {
             "required_keywords": ordered_unique(required_keywords),
             "must_cite": ordered_unique(must_cite),
