@@ -28,3 +28,7 @@ articles/article_*/
 !articles/article_demo/
 !articles/article_demo/**
 
+
+# AI-generated image library — local cache only, never committed (binary bloat;
+# reproducible via tools/gen_image.py). Originals only; CSS grade is applied at compose.
+/assets/image_library/
