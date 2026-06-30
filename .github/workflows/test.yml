@@ -50,6 +50,21 @@ jobs:
           assert manifest["caption"] == "post_xiaohongshu.txt"
           PY
 
+      - name: Xiaohongshu adapter never overflows a card
+        run: |
+          python3 tools/xhs_image_post.py tests/fixtures/xhs/long_paragraph.md \
+            --out-dir /tmp/xhs_long \
+            --no-render
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("/tmp/xhs_long/content_manifest.json").read_text(encoding="utf-8"))
+          # An over-wide paragraph must be split across cards; no card exceeds one
+          # card-width (MAX_BODY_CHARS = 430 display units). Cards are the product.
+          assert manifest["max_body_chars"] <= 430, manifest["max_body_chars"]
+          assert manifest["card_count"] >= 6, manifest["card_count"]
+          PY
+
       - name: Negative citation fixtures fail
         run: |
           if python3 tools/citation_audit.py tests/fixtures/citation/bad_missing_citation.md \
