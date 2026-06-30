@@ -46,8 +46,9 @@ against the upstream, and never wave something through.
 5. On FAIL, name each ungrounded item so the upstream agent (editorial / writer) can fix
    it — either add a supporting source, or cut the unsupported point.
 6. Write/update `stage_results/S2-grounding-1to2.json` for 1→2 or
-   `sections/sec<k>_result.json` for 2→3 with `stage`, `status`, `files`, and
-   machine-readable `findings`.
+   `sections/sec<k>_grounding.json` for 2→3 with `stage`, `section` (2→3), `status`,
+   `files`, and machine-readable `findings`. Use the stage-specific filename — never a
+   shared `sec<k>_result.json` (writer and auditor would clobber each other's verdict).
 
 ## What you do NOT do
 - Do not judge whether the source is factually correct (fact-checker's job).

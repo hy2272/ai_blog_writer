@@ -24,8 +24,10 @@ Read the section's `contracts/sec<k>_contract.md` + `.json`, `source_pack.json`,
    `python3 tools/citation_audit.py sections/sec<k>_draft.md --source-pack <pack> --contract <contract.json>`
 4. If it FAILs: read each finding, fix the specific sentence (add the missing `[Sn]`,
    correct an invalid id, meet a missing keyword), re-run. Do not declare done on red.
-5. Write/update `sections/sec<k>_result.json` with `stage`, `status`, `files`, and any
-   `findings` you are handing back to the orchestrator.
+5. Write/update `sections/sec<k>_writer.json` with `stage:"S3-writer"`, `section`,
+   `status`, `files`, and any `findings` you are handing back to the orchestrator. Write
+   ONLY this stage's file — never a shared `sec<k>_result.json` (the next stage would
+   overwrite it and destroy resume state).
 
 ## When the contract is wrong
 If the contract requires a claim no source supports, or contradicts the source pack,

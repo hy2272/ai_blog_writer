@@ -53,6 +53,19 @@ jobs:
             --allowed-outline-ids 1 \
             --allowed-source-ids S1,S2,S3
 
+      - name: Positive grounding 1->2 fixture passes
+        run: |
+          python3 tools/grounding_gate.py tests/fixtures/grounding/good_1to2.json \
+            --allowed-source-ids S1,S2
+
+      - name: status.py aggregates per-stage section results
+        run: |
+          out="$(python3 tools/status.py tests/fixtures/status)"
+          echo "$out"
+          echo "$out" | grep -q "section stages" || { echo "missing section matrix"; exit 1; }
+          # sec2 fact-check is MISATTRIBUTED -> the aggregator must derive a 'fail'
+          echo "$out" | grep -q "fail" || { echo "aggregator did not surface the failing stage"; exit 1; }
+
       - name: Positive article audit fixture passes
         run: python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09
 
@@ -200,6 +213,12 @@ jobs:
             --allowed-outline-ids 1 \
             --allowed-source-ids S1; then
             echo "bad_2to3_only_source_ids.json unexpectedly passed"
+            exit 1
+          fi
+
+          if python3 tools/grounding_gate.py tests/fixtures/grounding/bad_1to2_no_sources.json \
+            --allowed-source-ids S1,S2; then
+            echo "bad_1to2_no_sources.json unexpectedly passed"
             exit 1
           fi
 

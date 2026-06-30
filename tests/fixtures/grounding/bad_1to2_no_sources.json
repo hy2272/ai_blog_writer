@@ -1,0 +1,7 @@
+{
+  "stage": "1->2",
+  "items": [
+    {"id": 1, "claim": "封面：Anthropic 发布 Claude Sonnet 5", "grounded": true, "source_ids": ["S1"], "note": "ok"},
+    {"id": 2, "claim": "传言训练成本超过 10 亿美元", "grounded": true, "source_ids": [], "note": "outline point with no source backing it — angle drifted beyond research"}
+  ]
+}

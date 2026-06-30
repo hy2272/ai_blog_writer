@@ -90,7 +90,11 @@ articles/article_<slug>/
     sec<k>_draft.md         the section prose (writer)
     sec<k>_factcheck.md     claim→verdict table (fact-checker)
     sec<k>_audit.md         tool output + verdict (citation-auditor)
-    sec<k>_result.json      machine-readable status/findings for the latest section loop
+    sec<k>_writer.json      per-stage status/findings (writer)
+    sec<k>_factcheck.json   per-stage verdict + factcheck_gate input (fact-checker)
+    sec<k>_grounding.json   per-stage status/findings (grounding 2→3)
+    sec<k>_audit.json       per-stage status/findings (citation-auditor)
+                            — one file per stage; `tools/status.py` aggregates them
   stage_results/
     S1-research.json            machine-readable status/findings (append new stage files, never overwrite prior stages)
     S2-editorial.json

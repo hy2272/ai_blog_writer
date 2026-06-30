@@ -1,0 +1,7 @@
+{
+  "stage": "1->2",
+  "items": [
+    {"id": 1, "claim": "封面：Anthropic 发布 Claude Sonnet 5", "grounded": true, "source_ids": ["S1"], "note": "S1 is the official launch post"},
+    {"id": 2, "claim": "卖点：更便宜地跑 agent", "grounded": true, "source_ids": ["S1", "S2"], "note": "S1 + S2 both describe the cost angle"}
+  ]
+}

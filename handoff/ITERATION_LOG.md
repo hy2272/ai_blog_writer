@@ -11,6 +11,19 @@ carry the detail.
 
 ---
 
+## 2026-07-01 — #15 per-stage result files + status aggregator (+ grounding 1→2 fixtures)
+- **What:** each section stage now writes its own `sec<k>_<stage>.json` (writer / factcheck
+  / grounding / audit) instead of a shared `sec<k>_result.json`; new `tools/status.py`
+  reads them into a section × stage matrix (derives factcheck status from the verdict
+  claims). Plus grounding 1→2 fixtures (good + no-sources bad) — the first faithfulness
+  hop was advertised but untested.
+- **Why:** Cursor #3 (last-writer-wins clobbered verdicts → resume/status lied) + #4
+  (1→2 had no regression test).
+- **Risk:** status.py is read-only reporting (always exit 0), not a gate; agents must use
+  the stage-specific filenames (specs updated) or their result falls out of the matrix.
+- **Verified:** CI — status.py surfaces sec2's derived fact-check `fail`; grounding 1→2
+  good→PASS, no-sources bad→FAIL.
+
 ## 2026-07-01 — #14 humanizer artifact: audit the de-flavored text, not stale sections
 - **What:** S5 humanizer now writes a first-class `humanized.md`; `audit_article.py --draft`
   generalizes the assembled-draft audit (default `final.md`) so S5 audits `humanized.md`

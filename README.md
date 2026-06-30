@@ -160,6 +160,7 @@ tools/
   citation_audit.py    oracle 1 — marker/freshness/coverage/source-authority
   grounding_gate.py    oracle 2 — faithfulness (does downstream trace to upstream)
   factcheck_gate.py    oracle 3 — fact-check verdict gate (cited ≠ true; fails closed)
+  status.py            aggregate per-stage section results into a section × stage matrix
   audit_article.py     article-level wrapper; audits sections + the assembled --draft
                        (humanized.md at S5, final.md at S7) as a first-class artifact
   xhs_image_post.py    default Xiaohongshu long-image post package builder
