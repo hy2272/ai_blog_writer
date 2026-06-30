@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "id": "S1",
+      "url": "https://news.google.com/read/CBMiabcdef?hl=en-US&gl=US&ceid=US%3Aen",
+      "title": "Anthropic launches Claude Sonnet 5",
+      "date": "2026-06-30",
+      "publisher": "Google News (aggregator redirect)",
+      "note": "should FAIL — this is the Google News redirect, not the primary publisher"
+    }
+  ]
+}
