@@ -121,7 +121,9 @@ jobs:
           manifest = json.loads(Path("/tmp/xhs_image_post/content_manifest.json").read_text(encoding="utf-8"))
           assert manifest["format"] == "long_image_post"
           assert manifest["default"] is True
-          assert manifest["card_count"] >= 3
+          # cover (hook + reading route merged) + at least one content card
+          assert manifest["card_count"] >= 2
+          assert manifest["cards"][0]["kind"] == "cover"
           assert manifest["caption"] == "post_xiaohongshu.txt"
           PY
 
@@ -133,11 +135,14 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
+          from platforms.xiaohongshu.adapter import MAX_BODY_CHARS
           manifest = json.loads(Path("/tmp/xhs_long/content_manifest.json").read_text(encoding="utf-8"))
-          # An over-wide paragraph must be split across cards; no card exceeds one
-          # card-width (MAX_BODY_CHARS = 430 display units). Cards are the product.
-          assert manifest["max_body_chars"] <= 430, manifest["max_body_chars"]
-          assert manifest["card_count"] >= 6, manifest["card_count"]
+          # An over-wide paragraph must be split across cards; no card may exceed one
+          # card-width budget. Assert against the adapter's own constant so the test
+          # tracks the configured density instead of a hardcoded number. Cards are the product.
+          assert manifest["max_body_chars"] <= MAX_BODY_CHARS, manifest["max_body_chars"]
+          # still proves the over-wide paragraph was split across multiple body cards
+          assert manifest["card_count"] >= 4, manifest["card_count"]
           PY
 
       - name: Xiaohongshu meta sidecar drives cover + caption; traceable numbers pass

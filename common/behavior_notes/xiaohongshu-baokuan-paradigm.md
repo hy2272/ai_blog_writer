@@ -49,6 +49,17 @@ python3 tools/xhs_image_post.py articles/article_<slug>/final.md \
 - End on a save/read CTA; the full content is already in the images.
 - Hashtags are appended by the adapter with the 「用#选别直接粘」 note — do not paste `#tags`
   into the caption prose yourself.
+- **The caption is a SEPARATE hand-written field in `xhs_meta.json` — apply the SAME tone
+  rules as the body, and re-check it whenever the body's tone changes.** Real miss
+  (2026-06-30): after the body had 「最香的」/「影子」removed, the meta caption still carried
+  them because the sidecar wasn't re-edited. Tone-edit the draft and the caption in one pass.
+- **Caption calibration from a real published edit (Nano-Banana, 2026-06-30)** — generated →
+  what the author actually posted:
+  - 「谷歌Gemini这次」→「Gemini这次」(no brand+product stacking)
+  - 「最香的是它能调…」→「它能调…」(最香的 is banned)
+  - 「带着你的影子，没那么容易撞款」→「带着你的审美，绝对不撞款」(影子→审美; hedge→confident)
+  - 「还有个绕不开的准入坑」→「还有什么我踩过的坑」(第一人称踩坑 > 抽象名词)
+  All in [[style_patterns]] §3 (round 2 + round 3); the caption must follow them too.
 
 ## The hard edge (machine-checkable, project DNA)
 A shortened teaser is the one place an invented fact can slip in past the citation audit
