@@ -32,11 +32,13 @@ Sources are English; the article body is Chinese (see CLAUDE.md "Cross-lingual b
 
 Final language polish (optional, last step after both oracles are green):
 ```
-python3 tools/gemini_polish.py <final.txt> --out <final.polished.txt> --dry-run   # cost estimate
-python3 tools/gemini_polish.py <final.txt> --out <final.polished.txt>             # send to Gemini
+python3 tools/gemini_polish.py <final.txt> --out <final.polished.txt> --dry-run                # cost estimate
+python3 tools/gemini_polish.py <final.txt> --out <final.polished.txt> --check-facts            # send + fact-diff
 ```
-Reads `GEMINI_API_KEY` (+ optional `GEMINI_MODEL`) from a gitignored `.env` at the project
-root — copy `.env.example`. Fluency only; re-run `citation_audit.py` on the polished text.
+Reads `GEMINI_API_KEY` or `GOOGLE_API_KEY` (+ optional `GEMINI_MODEL`) from a gitignored
+`.env` at the project root — copy `.env.example`. Fluency only. `--check-facts` diffs
+numbers/units pre→post and exits 3 on a mismatch (polish can flip a fact, e.g.
+`75% off`→`75折`); then re-run `citation_audit.py` on the polished text for marker integrity.
 Cost guard: refuses if estimate > $1 (≈$0.001/post normally). See
 `common/behavior_notes/gemini-polish-pass.md`. A bulk run that could exceed $1 → ask Hanfei first.
 

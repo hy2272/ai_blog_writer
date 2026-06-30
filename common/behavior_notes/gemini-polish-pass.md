@@ -23,9 +23,15 @@ so normal use never trips it. If a planned run could exceed $1 (a bulk pass over
 posts), STOP and ask Hanfei first — state the necessity and let her decide.
 
 **Re-audit after polish — and DIFF THE FACTS, not just the markers:** the polish can
-subtly reword a cited sentence AND corrupt a fact while "improving" it. Re-run
-`citation_audit.py`, and separately diff every number / date / discount / comparison /
-negation against the pre-polish text. Watch discounts and comparatives especially.
+subtly reword a cited sentence AND corrupt a fact while "improving" it. Run the polish with
+`--check-facts` (it diffs number+unit / date / discount multisets pre→post and exits 3 on a
+mismatch — it catches a flipped unit like `75% off`→`75折` that a bare-number diff misses,
+while ignoring benign reformatting like 日↔号 / 美元↔美金). Then re-run `citation_audit.py`
+on the polished text for marker integrity.
+
+```
+python3 tools/gemini_polish.py <final.txt> --out <polished.txt> --check-facts   # exit 3 → review the diff
+```
 - **Real miss caught (2026-06-30, Cursor post):** Gemini "fixed" `打 75% off` → `打75折`,
   which is the OPPOSITE deal (`75% off` = pay 25% ≈ 2.5 折; `75 折` = pay 75%). The
   language was better but the fact was inverted. Lesson: fluency-only never means

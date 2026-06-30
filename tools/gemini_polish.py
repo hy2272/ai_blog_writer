@@ -24,8 +24,10 @@ Usage:
   --dry-run prints the model, the prompt size, and the cost estimate WITHOUT sending.
 """
 import argparse
+import collections
 import json
 import os
+import re
 import sys
 import urllib.request
 import urllib.error
@@ -52,6 +54,40 @@ POLISH_INSTRUCTION = """你是一名母语中文编辑。下面是一篇已经�
 原文：
 ---
 """
+
+
+# --- fact diff (--check-facts) ---------------------------------------------------------
+# Catch the dangerous case where polish keeps a number but flips its unit/meaning
+# (e.g. "75% off" → "75折" — both contain 75, so a bare-number diff misses it). We compare
+# a multiset of (number+unit) tokens AND a multiset of bare numbers. Synonymous units are
+# normalized so harmless reformatting (日↔号, 美金↔美元) does not raise a false alarm.
+_UNIT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(美元|美金|折|倍|月|年|日|号|周|天|亿|万|元|%|分|秒)")
+_NUM_RE = re.compile(r"\d+(?:\.\d+)?")
+_UNIT_NORM = {"号": "日", "美金": "美元"}
+
+
+def extract_facts(text):
+    units = collections.Counter()
+    for num, unit in _UNIT_RE.findall(text):
+        units[f"{num}{_UNIT_NORM.get(unit, unit)}"] += 1
+    nums = collections.Counter(_NUM_RE.findall(text))
+    return units, nums
+
+
+def fact_diff(src, dst):
+    """Return a list of human-readable diff lines; empty list == facts match."""
+    su, sn = extract_facts(src)
+    du, dn = extract_facts(dst)
+    out = []
+    for tok, n in (su - du).items():
+        out.append(f"  [unit gone]   original has '{tok}' (x{n}) — not in polished")
+    for tok, n in (du - su).items():
+        out.append(f"  [unit new]    polished has '{tok}' (x{n}) — not in original  ← likely a changed fact")
+    for tok, n in (sn - dn).items():
+        out.append(f"  [number gone] original has {tok} (x{n}) — not in polished")
+    for tok, n in (dn - sn).items():
+        out.append(f"  [number new]  polished has {tok} (x{n}) — not in original")
+    return out
 
 
 def load_env(path):
@@ -81,6 +117,9 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true", help="estimate + show request, do NOT send")
     ap.add_argument("--max-usd", type=float, default=1.0, help="refuse if estimate exceeds this")
     ap.add_argument("--force", action="store_true", help="send even if estimate exceeds --max-usd")
+    ap.add_argument("--check-facts", action="store_true",
+                    help="after polishing, diff numbers/units (dates/discounts) vs the input; "
+                         "exits 3 if any differ (some may be benign reformatting — review)")
     args = ap.parse_args(argv)
 
     with open(args.input, encoding="utf-8") as fh:
@@ -145,6 +184,16 @@ def main(argv=None):
         print(f"\npolished → {args.out}")
     else:
         print("\n" + out)
+
+    if args.check_facts:
+        warnings = fact_diff(text, out)
+        if warnings:
+            print("\n=== fact-diff: ⚠️  REVIEW — numbers/units changed pre→post polish ===")
+            for line in warnings:
+                print(line)
+            print("Verify each (some may be benign reformatting); watch discounts / comparisons / negations.")
+            return 3
+        print("\nfact-diff: ✅ numbers & units match pre/post polish")
     return 0
 
 
