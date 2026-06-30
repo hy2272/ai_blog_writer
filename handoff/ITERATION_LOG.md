@@ -11,6 +11,26 @@ carry the detail.
 
 ---
 
+## 2026-06-30 — #18 commit guard (pre-commit hook) + architect end-of-session ritual
+- **What:** `.githooks/pre-commit` — rejects a commit touching system paths (`platforms/`,
+  `tools/`, `.claude/`, `.githooks/`, `.github/workflows/`, `common/behavior_notes/`,
+  `common/style_patterns.md`, `CLAUDE.md`) unless `handoff/ITERATION_LOG.md` is staged too;
+  the local counterpart to the CI ITERATION_LOG gate (which is PR-level only). Enable with
+  `git config core.hooksPath .githooks` (documented in README "Contributing / dev setup").
+  CLAUDE.md gains an **architect end-of-session ritual**: before wrapping up, ask the human
+  (1) write a handoff? (2) open a PR? — scoped to the architect role, distinct from the
+  orchestrator's own proactive-handoff note. Plus this session's broad handoff
+  `handoff-2026-06-30-5.md` (`-4` is the Cursor agent's #7–#16 companion).
+- **Why:** the user expected "no iteration-log update → can't commit" but only the PR-level
+  CI gate existed (it passes silently on compliance, can't block a local commit, and a
+  no-PR push skips it). And the end-of-session handoff/PR ask needed a home the ARCHITECT
+  sees (CLAUDE.md, always in context) — not orchestrator.md (that's the pipeline role).
+- **Risk:** a hook is local + opt-in (needs the one-time `core.hooksPath` set; a fresh clone
+  without it is unguarded — README covers it); `--no-verify` bypasses by design. `.githooks/`
+  is itself a guarded path so the guard can't be weakened without a log entry.
+- **Verified:** hook self-test — staging a system file without ITERATION_LOG → blocked;
+  with ITERATION_LOG staged → passes (this very commit dogfoods it).
+
 ## 2026-06-30 — #17 xhs cards: paste-and-post redesign (density, layout, tone rules)
 - **What:** `platforms/xiaohongshu/adapter.py` — (a) `MAX_BODY_CHARS` 430→680 so a card's
   body fills the 1440px height (was top-third only) → fewer, denser cards, not a fixed 10;

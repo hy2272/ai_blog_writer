@@ -103,7 +103,17 @@ citation audit is a HARD gate (Stage 4) — a draft that fails it does not advan
   `handoff/ITERATION_LOG.md` (`what / why / risk / verified`) **in the same PR**. This is
   the per-PR continuity pulse so the next architect can resume from the repo alone; the
   full per-session `handoff/handoff-<date>.md` docs (via `/handoff`) remain for session
-  boundaries. The log is the stream; the handoff is the snapshot.
+  boundaries. The log is the stream; the handoff is the snapshot. A committed `pre-commit`
+  hook (`.githooks/pre-commit`, enable once with `git config core.hooksPath .githooks`)
+  enforces this locally — it rejects a commit touching system paths unless
+  `handoff/ITERATION_LOG.md` is staged too; CI enforces the same at the PR layer.
+- **Architect end-of-session ritual (you, when iterating THIS system — NOT the orchestrator
+  running the article pipeline):** before you wrap up, or as soon as the human says stop,
+  ASK the human two things, in order: (1) write a handoff doc (`/handoff`)? (2) open a PR
+  with the system changes + the ITERATION_LOG entry (+ the handoff)? Do not auto-generate or
+  auto-open; do not nag mid-task; but do not end silently either — this end-of-session check
+  is the architect's counterpart to the orchestrator's gates. (The orchestrator role has its
+  own, separate proactive-handoff note in `.claude/orchestrator.md`.)
 
 ## Pipeline (who does what)
 Orchestrator (main session) owns state, dispatches subagents, stops at every gate.

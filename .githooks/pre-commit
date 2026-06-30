@@ -1,0 +1,38 @@
+#!/bin/sh
+# aiblog commit guard: a commit that changes SYSTEM code/specs must also update the
+# iteration log (handoff/ITERATION_LOG.md) in the same commit — the per-PR continuity
+# pulse the convention in CLAUDE.md requires. This is the local-enforcement counterpart
+# to the CI "Every PR appends to the iteration log" check (which is PR-level only).
+#
+# Install (one time, per clone):  git config core.hooksPath .githooks
+# Intentional bypass (rare):      git commit --no-verify
+#
+# SYSTEM paths whose change requires a log entry. Pure doc/handoff/article commits are
+# NOT system changes and pass freely.
+set -e
+
+staged=$(git diff --cached --name-only)
+[ -z "$staged" ] && exit 0
+
+system=$(printf '%s\n' "$staged" | grep -E \
+  '^(platforms/|tools/|\.claude/|\.githooks/|\.github/workflows/|common/behavior_notes/|common/style_patterns\.md|CLAUDE\.md)' \
+  || true)
+
+if [ -n "$system" ]; then
+  if printf '%s\n' "$staged" | grep -qx 'handoff/ITERATION_LOG.md'; then
+    : # log updated alongside the system change — good
+  else
+    echo "✋ pre-commit: system files changed but handoff/ITERATION_LOG.md is not staged." >&2
+    echo "" >&2
+    echo "   Changed system files:" >&2
+    printf '     %s\n' $system >&2
+    echo "" >&2
+    echo "   Append a 'what / why / risk / verified' entry (newest first) to" >&2
+    echo "   handoff/ITERATION_LOG.md, stage it, then re-commit." >&2
+    echo "   Convention: CLAUDE.md -> 'Every system-iteration PR updates the iteration log'." >&2
+    echo "   Intentional bypass: git commit --no-verify" >&2
+    exit 1
+  fi
+fi
+
+exit 0
