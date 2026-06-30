@@ -87,6 +87,16 @@ python3 tools/grounding_gate.py articles/article_demo/sections/grounding_2to3.js
 python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09               # PASS
 ```
 
+Add `--source-authority` to score cited sources against `common/source_authority.json` —
+a blacklisted/aggregator domain FAILs, a piece with no tier-1/2 anchor WARNs (FAILs under
+`--strict`), an unranked domain WARNs. This closes the "green-dashboard trap": cited +
+faithful is not enough if the source itself is a content farm.
+
+```
+python3 tools/citation_audit.py <draft.md> --source-pack <pack.json> \
+  --source-authority common/source_authority.json --as-of <date>
+```
+
 Build the default 小红书 technical long-image package after `final.md` is verified:
 
 ```
@@ -140,6 +150,7 @@ RUNBOOK.md             step-by-step
   commands/            /write-article /new-article /status /write-section /handoff
 common/
   style_patterns.md    voice + 去 AI 味 + the §7 hard-rule checklist (single source of truth)
+  source_authority.json domain tiers for --source-authority (tier-1/2 allowlist + blacklist)
   behavior_notes/      conditional knowledge the writing agents glob (incl. 小红书 mode)
 platforms/
   xiaohongshu/         default long-image post adapter

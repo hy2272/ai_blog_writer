@@ -14,17 +14,25 @@ Read `CLAUDE.md` (the hard edge: no claim without a dated source) before startin
 
 ## What you do
 1. Run live `WebSearch` on the topic + its sub-angles. Prefer primary sources (the
-   lab's own post, the paper, the official release) over secondary commentary.
+   lab's own post, the paper, the official release) over secondary commentary. Consult
+   `common/source_authority.json` for which domains are tier-1 (primary) / tier-2
+   (reputable) / blacklisted — anchor the angle on tier-1/2 sources, never on a
+   blacklisted aggregator redirect (resolve it to the primary publisher).
 2. `WebFetch` each candidate to confirm it says what the title implies. Pull the
    publication date — if you cannot find a date, the source is unusable for an
    AI-hot-topic piece; drop it.
 3. Write `source_pack.json` in the article folder:
    ```json
    {"sources":[
-     {"id":"S1","url":"…","title":"…","date":"YYYY-MM-DD","publisher":"…","note":"what it supports"}
+     {"id":"S1","url":"…","title":"…","date":"YYYY-MM-DD","publisher":"…",
+      "tier":"tier1|tier2|unknown","note":"what it supports"}
    ]}
    ```
-   Assign stable `S<n>` ids — the writer cites these exact ids.
+   Assign stable `S<n>` ids — the writer cites these exact ids. Tag each source's `tier`
+   by matching its domain against `common/source_authority.json` (the citation audit
+   re-derives this from the domain itself, so the field is for the human + S0 reuse — but
+   tag it honestly). If every source you found is `unknown`, that is a research-quality
+   flag: surface it for the human gate, do not paper over it.
 4. Write `research_brief.md`: the proposed angle, the 5-8 strongest sources with one
    line each on what claim they support, and any contradiction between sources (flag
    it — do not silently pick a side).

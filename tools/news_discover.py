@@ -23,6 +23,27 @@ from tools.apify_client import ApifyError, run_actor  # noqa: E402
 
 
 DEFAULT_ACTOR = "practicaltools~apify-google-news-scraper"
+AUTHORITY_PATH = Path(__file__).resolve().parents[1] / "common" / "source_authority.json"
+
+
+# Generic subdomain labels that are NOT a brand (blog.google, research.google, …) and
+# short tokens (x.ai → "x", ft.com → "ft") over-match inside unrelated names, so skip them.
+_GENERIC_BRAND = {"blog", "research", "news", "tech", "the", "www"}
+
+
+def classify_source_name(name: str, authority: dict) -> str:
+    """Best-effort tier from a publisher NAME (Google News gives names, not domains), by
+    matching the brand token of each authority domain. Approximate — multi-word outlets
+    (e.g. 'The New York Times' vs nytimes.com) can miss; --min-tier is an opt-in convenience."""
+    n = (name or "").lower().replace("the ", "").replace(" ", "")
+    if not n:
+        return "unknown"
+    for tier, key in (("tier1", "tier1_primary"), ("tier2", "tier2_reputable")):
+        for d in authority.get(key, []):
+            brand = str(d).split(".")[0].lower()
+            if len(brand) >= 4 and brand not in _GENERIC_BRAND and brand in n:
+                return tier
+    return "unknown"
 
 
 def normalize(items: list[dict]) -> list[dict]:
@@ -53,6 +74,9 @@ def main(argv=None) -> int:
     ap.add_argument("--language", default="en")
     ap.add_argument("--country", default="US")
     ap.add_argument("--actor", default=DEFAULT_ACTOR, help="override the Apify actor id")
+    ap.add_argument("--min-tier", choices=["tier1", "tier2"],
+                    help="keep only items whose publisher maps to this tier or better "
+                         "(name-based, approximate); drops are reported, never silent")
     ap.add_argument("--out", help="write the normalized JSON here")
     args = ap.parse_args(argv)
 
@@ -70,6 +94,14 @@ def main(argv=None) -> int:
         return 1
 
     rows = normalize(items)
+    if args.min_tier:
+        authority = json.loads(AUTHORITY_PATH.read_text(encoding="utf-8"))
+        allowed = {"tier1"} if args.min_tier == "tier1" else {"tier1", "tier2"}
+        kept = [r for r in rows if classify_source_name(r["source"], authority) in allowed]
+        dropped = len(rows) - len(kept)
+        print(f"--min-tier {args.min_tier}: kept {len(kept)} / {len(rows)} "
+              f"(dropped {dropped} unranked-by-name)")
+        rows = kept
     result = {
         "query": args.query,
         "timeframe": args.timeframe,

@@ -16,6 +16,10 @@ Checks (each is independently reported; any FAIL → non-zero exit):
   5. word-count          draft length within the contract's [word_min, word_max]
   6. required-coverage   every contract `required_keywords` phrase appears in the draft
   7. link-resolves       (opt-in, --check-links) every cited URL returns HTTP < 400
+  8. source-authority    (opt-in, --source-authority) a cited domain on the blacklist ->
+                         FAIL; a piece anchored on NO tier-1/2 source -> WARN; an unranked
+                         domain -> WARN. Closes the "green-dashboard trap": cited + faithful
+                         is not enough if the source itself is a content farm.
 
 Exit code: 0 = PASS (no FAIL-level findings), 1 = FAIL. WARN-level findings never
 fail the gate on their own; use --strict to promote WARN -> FAIL.
@@ -37,6 +41,7 @@ import json
 import re
 import sys
 from datetime import date
+from urllib.parse import urlparse
 
 
 CITE_RE = re.compile(r"\[(S\d+(?:\s*,\s*S\d+)*)\]")
@@ -205,6 +210,65 @@ def check_links(used_ids, by_id):
     return out
 
 
+def _domain_of(url):
+    """Registrable host of a URL, lowercased, without a leading www."""
+    try:
+        netloc = urlparse(url).netloc.lower()
+    except ValueError:
+        return ""
+    netloc = netloc.split("@")[-1].split(":")[0]
+    return netloc[4:] if netloc.startswith("www.") else netloc
+
+
+def _domain_matches(domain, listed):
+    listed = str(listed).lower().lstrip(".")
+    return domain == listed or domain.endswith("." + listed)
+
+
+def classify_domain(domain, authority):
+    """blacklist | tier1 | tier2 | unknown — first match wins, blacklist first."""
+    if not domain:
+        return "unknown"
+    for tier, key in (("blacklist", "blacklist"),
+                      ("tier1", "tier1_primary"),
+                      ("tier2", "tier2_reputable")):
+        for d in authority.get(key, []):
+            if isinstance(d, str) and _domain_matches(domain, d):
+                return tier
+    return "unknown"
+
+
+def check_source_authority(used_ids, by_id, authority):
+    """A blacklisted/aggregator domain -> FAIL. A piece with NO tier-1/2 source -> WARN.
+    An unranked domain -> WARN. Domain is derived here (machine truth), not trusted from
+    any `tier` field a source may carry."""
+    out = []
+    has_authoritative = False
+    cited_any = False
+    for cid in sorted(used_ids):
+        src = by_id.get(cid)
+        if not src:
+            continue  # already reported by citation-validity
+        cited_any = True
+        domain = _domain_of(src.get("url", ""))
+        tier = classify_domain(domain, authority)
+        if tier == "blacklist":
+            out.append(Finding("FAIL", "source-authority",
+                               f"{cid} cites a blacklisted/aggregator source "
+                               f"({domain or src.get('url')!r}); cite the primary publisher, not this"))
+        elif tier in ("tier1", "tier2"):
+            has_authoritative = True
+        else:
+            out.append(Finding("WARN", "source-authority",
+                               f"{cid} ({domain or 'no url'}) is not in the authority list; "
+                               f"verify it is credible or add it to common/source_authority.json"))
+    if cited_any and not has_authoritative:
+        out.append(Finding("WARN", "source-authority",
+                           "no cited source is tier-1/2 authoritative — the piece rests only on "
+                           "low-authority/unranked sources; anchor a key claim to a primary or major outlet"))
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Machine-checkable citation/fact audit for prose.")
     ap.add_argument("draft", help="path to the section/article markdown")
@@ -213,6 +277,9 @@ def main(argv=None):
     ap.add_argument("--as-of", help="reference date YYYY-MM-DD for freshness (default: pack max date)")
     ap.add_argument("--max-age-days", type=int, default=180)
     ap.add_argument("--check-links", action="store_true")
+    ap.add_argument("--source-authority",
+                    help="optional JSON of domain tiers (tier1_primary/tier2_reputable/blacklist); "
+                         "blacklisted source -> FAIL, no tier-1/2 source -> WARN")
     ap.add_argument("--strict", action="store_true", help="promote WARN findings to failures")
     args = ap.parse_args(argv)
 
@@ -243,6 +310,8 @@ def main(argv=None):
     findings += check_must_cite(used_ids, contract)
     if args.check_links:
         findings += check_links(used_ids, by_id)
+    if args.source_authority:
+        findings += check_source_authority(used_ids, by_id, load_json(args.source_authority))
 
     fails = [f for f in findings if f.level == "FAIL"]
     warns = [f for f in findings if f.level == "WARN"]

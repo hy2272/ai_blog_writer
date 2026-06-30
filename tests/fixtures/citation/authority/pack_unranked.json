@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "id": "S1",
+      "url": "https://tech-insider.example/claude-sonnet-5-everything",
+      "title": "Claude Sonnet 5: everything you need to know",
+      "date": "2026-06-30",
+      "publisher": "tech-insider (unranked)",
+      "note": "should WARN (unranked + no tier-1/2 anchor); --strict promotes to FAIL"
+    }
+  ]
+}

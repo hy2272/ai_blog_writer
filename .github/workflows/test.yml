@@ -121,6 +121,30 @@ jobs:
             exit 1
           fi
 
+      - name: Source-authority — tier-1 source passes
+        run: |
+          python3 tools/citation_audit.py tests/fixtures/citation/authority/draft.md \
+            --source-pack tests/fixtures/citation/authority/pack_tier1.json \
+            --source-authority common/source_authority.json --as-of 2026-06-30
+
+      - name: Source-authority — blacklisted/aggregator source FAILs
+        run: |
+          if python3 tools/citation_audit.py tests/fixtures/citation/authority/draft.md \
+            --source-pack tests/fixtures/citation/authority/pack_blacklisted.json \
+            --source-authority common/source_authority.json --as-of 2026-06-30; then
+            echo "blacklisted source unexpectedly passed"
+            exit 1
+          fi
+
+      - name: Source-authority — no tier-1/2 anchor FAILs under --strict
+        run: |
+          if python3 tools/citation_audit.py tests/fixtures/citation/authority/draft.md \
+            --source-pack tests/fixtures/citation/authority/pack_unranked.json \
+            --source-authority common/source_authority.json --as-of 2026-06-30 --strict; then
+            echo "unranked-only source unexpectedly passed under --strict"
+            exit 1
+          fi
+
       - name: Negative grounding fixtures fail
         run: |
           if python3 tools/grounding_gate.py tests/fixtures/grounding/bad_2to3_no_outline_ids.json \
