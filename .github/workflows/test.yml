@@ -158,6 +158,18 @@ jobs:
             exit 1
           fi
 
+      - name: Positive fact-check verdict passes
+        run: python3 tools/factcheck_gate.py tests/fixtures/factcheck/good.json
+
+      - name: Negative fact-check verdicts fail
+        run: |
+          for f in bad_misattributed bad_unverified bad_empty; do
+            if python3 tools/factcheck_gate.py tests/fixtures/factcheck/$f.json; then
+              echo "factcheck $f.json unexpectedly passed"
+              exit 1
+            fi
+          done
+
       - name: Negative grounding fixtures fail
         run: |
           if python3 tools/grounding_gate.py tests/fixtures/grounding/bad_2to3_no_outline_ids.json \

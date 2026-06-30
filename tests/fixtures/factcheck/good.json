@@ -1,0 +1,22 @@
+{
+  "stage": "S3-fact-check",
+  "section": 1,
+  "claims": [
+    {
+      "id": 1,
+      "claim": "Anthropic 今天发布了 Claude Sonnet 5。",
+      "citation": "S1",
+      "verdict": "SUPPORTED",
+      "evidence": "S1 (anthropic.com launch post) states Claude Sonnet 5 was released on this date.",
+      "fix": ""
+    },
+    {
+      "id": 2,
+      "claim": "它主打更便宜地跑 agent。",
+      "citation": "S1",
+      "verdict": "SUPPORTED",
+      "evidence": "S1 describes Sonnet 5 as a cheaper way to run agent workloads.",
+      "fix": ""
+    }
+  ]
+}

@@ -51,8 +51,11 @@ text for the "why", structure for the "does it pass".
 **The green-dashboard trap (evals course §8):** `citation_audit` proves a claim is
 *cited*, not that it is *true* — every claim could carry an `[Sn]` while the source
 says no such thing. That is the "dashboard全绿、底下全烂" failure. The `fact-checker`
-agent (S3) is the antidote: it actually reads the cited source. The audit is necessary,
-not sufficient; never ship on a green audit without the fact-check having run.
+agent (S3) is the antidote: it actually reads the cited source, and emits a per-claim
+verdict that `tools/factcheck_gate.py` turns into a HARD gate (any non-`SUPPORTED` claim →
+exit 1; fails CLOSED on an empty verdict). The audit is necessary, not sufficient; the
+fact-check gate is what makes "never ship on a green audit without the fact-check having
+run" machine-enforced rather than a hope.
 
 ## Cross-lingual by design: Chinese output, English source boundary
 The deliverable is a **Chinese** article. The factual ground truth — the source pack —

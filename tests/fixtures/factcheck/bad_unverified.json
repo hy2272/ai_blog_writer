@@ -1,0 +1,14 @@
+{
+  "stage": "S3-fact-check",
+  "section": 2,
+  "claims": [
+    {
+      "id": 1,
+      "claim": "据传该模型的训练成本超过 10 亿美元。",
+      "citation": "S2",
+      "verdict": "UNVERIFIED",
+      "evidence": "Could not confirm the figure in S2 or any cited source; rumor-level only.",
+      "fix": "drop the unverifiable figure or attribute it explicitly as an unconfirmed report"
+    }
+  ]
+}

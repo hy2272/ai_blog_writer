@@ -84,6 +84,8 @@ python3 tools/citation_audit.py articles/article_demo/sections/sec1_draft.md \
   --contract articles/article_demo/contracts/sec1_contract.json --as-of 2026-06-09   # PASS
 python3 tools/grounding_gate.py articles/article_demo/sections/grounding_2to3.json \
   --allowed-outline-ids 1 --allowed-source-ids S1,S2,S3                               # PASS
+python3 tools/factcheck_gate.py tests/fixtures/factcheck/good.json                    # PASS
+python3 tools/factcheck_gate.py tests/fixtures/factcheck/bad_misattributed.json       # FAIL
 python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09               # PASS
 ```
 
@@ -155,8 +157,9 @@ common/
 platforms/
   xiaohongshu/         default long-image post adapter
 tools/
-  citation_audit.py    oracle 1 — marker/freshness/coverage
-  grounding_gate.py    oracle 2 — faithfulness
+  citation_audit.py    oracle 1 — marker/freshness/coverage/source-authority
+  grounding_gate.py    oracle 2 — faithfulness (does downstream trace to upstream)
+  factcheck_gate.py    oracle 3 — fact-check verdict gate (cited ≠ true; fails closed)
   audit_article.py     article-level wrapper over section/final audits
   xhs_image_post.py    default Xiaohongshu long-image post package builder
   news_discover.py     S0 topic discovery — fresh dated AI headlines via Apify

@@ -16,15 +16,27 @@ draft file does not exist, STOP with `status=blocked`; do not check an older dra
 ## What you do
 1. For each `[Sn]`-cited sentence, check the claim against source `Sn`. Where the pack
    note is insufficient, `WebFetch` the URL and read the relevant passage.
-2. Classify each claim: `SUPPORTED` (source says it), `MISATTRIBUTED` (cited source
-   does not support it — wrong id or overreach), or `UNSOURCED` (factual but no `[Sn]`).
+2. Classify each claim into exactly one verdict: `SUPPORTED` (source says it),
+   `MISATTRIBUTED` (cited source does not support it — wrong id or overreach),
+   `UNSOURCED` (factual but no `[Sn]`), or `UNVERIFIED` (you could not confirm it against
+   any cited source). Only `SUPPORTED` passes the gate; the other three all fail it.
 3. Write `sections/sec<k>_factcheck.md`: a table of claim → verdict → evidence line.
    For every non-SUPPORTED claim, name the exact fix (correct id / soften / drop).
 4. Adversarially probe: numbers transposed, a date off by a year, a lab attributed to
    the wrong claim, an extrapolation stated as fact. These pass the audit tool but are
    wrong — they are exactly what you exist to catch.
-5. Write `sections/sec<k>_result.json` with `stage:"S3-fact-check"`, `status`, `files`,
-   and machine-readable `findings`.
+5. Write the machine-gateable verdict `sections/sec<k>_factcheck.json`:
+   ```json
+   {"stage":"S3-fact-check","section":<k>,"claims":[
+     {"id":1,"claim":"<sentence>","citation":"S1",
+      "verdict":"SUPPORTED|MISATTRIBUTED|UNSOURCED|UNVERIFIED",
+      "evidence":"<what the source says / why it fails>","fix":"<for non-SUPPORTED>"}
+   ]}
+   ```
+   Then run the gate and report its result:
+   `python3 tools/factcheck_gate.py sections/sec<k>_factcheck.json`. It exits non-zero on
+   ANY non-SUPPORTED claim, and FAILs closed on an empty claim list — do not hand-wave a
+   green. The orchestrator gates on this exit code, not on your prose.
 
 ## What you do NOT do
 - Do not edit the draft (the writer fixes; you report).
@@ -33,4 +45,4 @@ draft file does not exist, STOP with `status=blocked`; do not check an older dra
 - Do not re-judge style, structure, or word count (that is the audit / reviewer).
 
 ## Completion string
-`FACT-CHECK COMPLETE — section <k>: <n> claims, <m> unsourced`
+`FACT-CHECK COMPLETE — section <k>: <n> claims, factcheck_gate <PASS|FAIL>`

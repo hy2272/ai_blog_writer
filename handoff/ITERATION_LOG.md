@@ -11,6 +11,18 @@ carry the detail.
 
 ---
 
+## 2026-07-01 — #13 factcheck_gate: make "cited but wrong" a machine gate
+- **What:** `tools/factcheck_gate.py` — sibling of `grounding_gate.py`. The fact-checker
+  emits a per-claim verdict JSON (`sec<k>_factcheck.json`, verdict ∈ SUPPORTED /
+  MISATTRIBUTED / UNSOURCED / UNVERIFIED); the gate exits 1 on any non-SUPPORTED claim and
+  FAILs **closed** on an empty verdict. Wired into fact-checker.md + orchestrator S3.
+- **Why:** Cursor finding #2 + the project's own most-dangerous gap — the green-dashboard
+  trap was only LLM/prose-advisory, not machine-enforced. (temperature=0's actionable form:
+  structured judge output → Python gate; the gate, not the temperature, is the 保险丝.)
+- **Risk:** the gate only validates the verdict structure, not the judge's correctness — a
+  same-tier judge can still mis-verdict; this enforces the protocol, not omniscience.
+- **Verified:** CI good→PASS; misattributed / unverified / empty → FAIL.
+
 ## 2026-07-01 — #11 source-authority: rank cited sources by domain tier
 - **What:** `common/source_authority.json` (tier-1/2 allowlist + aggregator blacklist) +
   `citation_audit.py --source-authority` (blacklist→FAIL, no tier-1/2 anchor→WARN, unknown→WARN);
