@@ -11,6 +11,21 @@ carry the detail.
 
 ---
 
+## 2026-06-30 — #19 align the CI log gate with the pre-commit hook
+- **What:** the CI "iteration log" gate now uses the SAME system-path filter as
+  `.githooks/pre-commit` — it only requires `ITERATION_LOG.md` when a PR changes system
+  paths (`platforms/`, `tools/`, `.claude/`, `.githooks/`, `.github/workflows/`,
+  `common/behavior_notes/`, `common/style_patterns.md`, `CLAUDE.md`). Pure doc/handoff/
+  article PRs now pass freely.
+- **Why:** the two guards disagreed — the local hook exempted pure-doc commits but the CI
+  gate required the log on EVERY PR, so a handoff-only PR would fail CI. Surfaced while
+  landing the `-4` handoff.
+- **Risk:** the two path lists must stay in sync; if you add a system dir to one, add it to
+  the other (hook + workflow).
+- **Verified:** this PR changes a system path (`.github/workflows/`) and includes this log
+  entry, so it satisfies the aligned gate; a hypothetical handoff-only PR would now be
+  exempted.
+
 ## 2026-06-30 — #18 commit guard (pre-commit hook) + architect end-of-session ritual
 - **What:** `.githooks/pre-commit` — rejects a commit touching system paths (`platforms/`,
   `tools/`, `.claude/`, `.githooks/`, `.github/workflows/`, `common/behavior_notes/`,
