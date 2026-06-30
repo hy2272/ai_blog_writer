@@ -27,11 +27,20 @@ from pathlib import Path
 
 CARD_W = 1080
 CARD_H = 1440
-MAX_BODY_CHARS = 430
+# Display-width budget for one card's body. Calibrated so the body actually FILLS the
+# 1440px-tall card at the current type scale (body 36px / line-height 1.66 ≈ 17 lines ×
+# ~50 display units), instead of floating in the top third. Higher budget => fewer, denser
+# cards (content flows to fill a card, then spills to the next) rather than a fixed count.
+# Render-verified against the longest section; keep a safety margin so a 2-line title plus a
+# full body never clips. The CI overflow test asserts no card exceeds this value.
+MAX_BODY_CHARS = 680
 DEFAULT_TAGS = ["#科技资讯早知道", "#人工智能", "#AI工具", "#效率神器", "#vibecoding"]
 CITE_RE = re.compile(r"\[(S\d+(?:\s*,\s*S\d+)*)\]")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 REF_HEADING_RE = re.compile(r"^(references|参考|参考来源|sources|source list)$", re.I)
+# A line that is ONLY hashtags (e.g. "#人工智能 #AI出图"). These belong in the caption's
+# tag block, not burned into a card image — extracted as tags, kept off the cards.
+HASHTAG_LINE_RE = re.compile(r"^#\S+(?:\s+#\S+)*$")
 
 
 @dataclass
@@ -46,6 +55,7 @@ class Card:
     title: str
     body: list[str]
     kicker: str = ""
+    outline: list[str] | None = None  # cover only: the "这篇讲什么" reading route
 
 
 def display_len(text: str) -> int:
@@ -63,10 +73,11 @@ def strip_markdown_inline(text: str) -> str:
     return text.strip()
 
 
-def parse_markdown(text: str) -> tuple[str, list[Section], list[str], set[str]]:
+def parse_markdown(text: str) -> tuple[str, list[Section], list[str], set[str], list[str]]:
     title = "小红书技术长图文"
     sections: list[Section] = []
     refs: list[str] = []
+    tags: list[str] = []
     current: Section | None = None
     in_refs = False
 
@@ -92,6 +103,10 @@ def parse_markdown(text: str) -> tuple[str, list[Section], list[str], set[str]]:
             in_refs = False
             continue
 
+        if HASHTAG_LINE_RE.match(line):
+            tags.extend(line.split())
+            continue
+
         clean = strip_markdown_inline(line)
         if in_refs:
             refs.append(clean)
@@ -105,7 +120,7 @@ def parse_markdown(text: str) -> tuple[str, list[Section], list[str], set[str]]:
     for m in CITE_RE.finditer(text):
         for tok in m.group(1).split(","):
             citations.add(tok.strip())
-    return title, sections, refs, citations
+    return title, sections, refs, citations, tags
 
 
 # A "sentence" is text up to a terminal punctuation mark, keeping any citation
@@ -196,33 +211,23 @@ def build_cards(
     cover_title: str | None = None,
     cover_subtitle: str | None = None,
 ) -> list[Card]:
-    # The cover is the highest-leverage asset on Xiaohongshu — a hook, not the raw
-    # article H1. The editorial/output agent supplies cover_title/cover_subtitle via
-    # the meta sidecar; absent that, fall back to the article title.
-    cover_body = [cover_subtitle] if cover_subtitle else ["技术帖长图版", "先看结论，再看依据"]
+    # Card 1 merges the hook cover with the "这篇讲什么" reading route. A standalone outline
+    # card was too sparse and forced an extra swipe before any value — the reader sees the
+    # hook AND the map on the first image. (refs is provenance, not a post asset → dropped.)
+    cover_body = [cover_subtitle] if cover_subtitle else ["技术帖长图版"]
+    outline = [s.title for s in sections]
     cards: list[Card] = [
-        Card("cover", (cover_title or title)[:28], cover_body, "AI / 技术更新"),
+        Card("cover", (cover_title or title)[:28], cover_body, "AI / 技术更新",
+             outline=outline[:6] or None),
     ]
 
-    outline = [f"{i}. {s.title}" for i, s in enumerate(sections, start=1)]
-    if outline:
-        cards.append(Card("outline", "这篇讲什么", outline[:8], "阅读路线"))
-
+    # One card per section; a section only splits when its body overflows one card. The
+    # final.md segments are the layout basis — three segments → three text cards by default.
     for i, section in enumerate(sections, start=1):
         chunks = chunk_paragraphs(section.paragraphs)
         for j, chunk in enumerate(chunks or [["这一节没有正文。"]], start=1):
             suffix = f" · {j}" if len(chunks) > 1 else ""
             cards.append(Card("body", section.title, chunk, f"{i:02d}{suffix}"))
-
-    if citations:
-        body = [f"文中引用：{', '.join(sorted(citations))}"]
-        if refs:
-            body.extend(refs[:5])
-        body.append("发布前保留来源清单；平台正文可改成“资料来自官方公告/论文/新闻源”。")
-        ref_chunks = chunk_paragraphs(body)
-        for j, chunk in enumerate(ref_chunks, start=1):
-            suffix = f" · {j}" if len(ref_chunks) > 1 else ""
-            cards.append(Card("refs", "参考来源", chunk, f"Provenance{suffix}"))
 
     return cards
 
@@ -231,93 +236,178 @@ def card_body_width(card: Card) -> int:
     return sum(display_len(p) for p in card.body)
 
 
+# Citation markers ([S1], [S1,S3]) are STRIPPED from the rendered cards: the cards are the
+# paste-and-post deliverable, and inline [Sn] reads like debug output to a 小红书 reader.
+# Provenance still lives in final.md (where the citation audit enforces it) and in the
+# manifest's citation_ids — it is just not shown on the image.
+CITE_SPAN_RE = re.compile(r"\s*\[S\d+(?:\s*,\s*S\d+)*\]")
+
+
+def _format_paragraph(text: str) -> str:
+    stripped = CITE_SPAN_RE.sub("", text)
+    stripped = re.sub(r"[ \t]{2,}", " ", stripped).strip()
+    return html.escape(stripped)
+
+
 def html_card(card: Card, idx: int, total: int) -> str:
-    paras = "\n".join(f"<p>{html.escape(p)}</p>" for p in card.body)
+    is_cover = card.kind == "cover"
+    paras = "\n".join(f"<p>{_format_paragraph(p)}</p>" for p in card.body)
+    # A large faded page number anchors the composition and fills the lower field so a
+    # shorter trailing card still reads as designed, not empty. Skipped on the cover.
+    watermark = "" if is_cover else f'<div class="seq">{idx:02d}</div>'
+    cover_class = " cover" if is_cover else ""
+    title_size = 84 if is_cover else 50
+    body_size = 38 if is_cover else 36
+    pill_label = "阅读路线" if is_cover else "技术长图文"
+    toc_html = ""
+    if is_cover and card.outline:
+        items = "\n".join(f"<li>{html.escape(t)}</li>" for t in card.outline)
+        toc_html = f'<div class="toc-label">这篇讲什么</div>\n<ol class="toc">{items}</ol>'
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width={CARD_W}, initial-scale=1" />
 <style>
+:root {{
+  --bg-a: #f2ece2;
+  --bg-b: #e7dfd2;
+  --ink: #211d18;
+  --sub: #6c6358;
+  --accent: #c75d36;
+  --line: #cdc4b5;
+  --serif: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", "STSong", serif;
+  --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+}}
 * {{ box-sizing: border-box; }}
 body {{
   margin: 0;
   width: {CARD_W}px;
   height: {CARD_H}px;
-  background: #f4efe7;
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
-  color: #1f2933;
+  background: var(--bg-a);
+  font-family: var(--sans);
+  color: var(--ink);
 }}
 .card {{
+  position: relative;
   width: {CARD_W}px;
   height: {CARD_H}px;
-  padding: 72px 76px 58px;
+  padding: 88px 84px 76px;
+  overflow: hidden;
   background:
-    radial-gradient(circle at 92% 8%, rgba(255, 122, 89, .28), transparent 24%),
-    linear-gradient(135deg, #fffaf1 0%, #f7efe2 56%, #edf4ff 100%);
+    radial-gradient(circle at 90% 6%, rgba(199,93,54,.10), transparent 30%),
+    linear-gradient(158deg, var(--bg-a) 0%, var(--bg-b) 100%);
   display: flex;
   flex-direction: column;
 }}
-.kicker {{
-  font-size: 34px;
-  letter-spacing: .04em;
-  color: #ef6c42;
-  font-weight: 800;
-  margin-bottom: 28px;
+.card.cover {{ padding: 96px 88px 80px; }}
+.ring {{
+  position: absolute; top: -120px; right: -120px;
+  width: 360px; height: 360px; border-radius: 50%;
+  border: 2px solid rgba(199,93,54,.18);
+}}
+.ring::before {{
+  content: ""; position: absolute; inset: 46px;
+  border-radius: 50%; border: 1px dashed rgba(33,29,24,.16);
+}}
+.seq {{
+  position: absolute; right: 40px; bottom: 8px;
+  font-family: var(--serif); font-size: 360px; line-height: 1;
+  color: rgba(199,93,54,.07); z-index: 0; pointer-events: none;
+}}
+.inner {{ position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; }}
+.eyebrow {{
+  font-size: 26px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700; margin-bottom: 26px;
 }}
 h1 {{
-  font-size: {72 if card.kind == "cover" else 56}px;
-  line-height: 1.12;
-  margin: 0 0 34px;
-  letter-spacing: -0.02em;
+  font-family: var(--serif);
+  font-size: {title_size}px;
+  line-height: 1.22;
+  font-weight: 700;
+  margin: 0 0 30px;
+  letter-spacing: .01em;
+}}
+.rule {{
+  width: 96px; height: 5px; border-radius: 3px;
+  background: var(--accent); margin: 0 0 40px;
 }}
 .body {{
-  font-size: {39 if card.kind == "cover" else 34}px;
-  line-height: 1.55;
-  font-weight: 520;
+  font-size: {body_size}px;
+  line-height: 1.66;
+  color: #2c2823;
+  font-weight: 400;
 }}
-.body p {{
-  margin: 0 0 24px;
+.cover .body {{ color: var(--sub); }}
+.body p {{ margin: 0 0 26px; }}
+.body p:last-child {{ margin-bottom: 0; }}
+.toc-label {{
+  font-size: 26px; letter-spacing: .16em; color: var(--sub);
+  font-weight: 700; margin: 46px 0 20px;
 }}
-.body p::first-letter {{
-  font-weight: 800;
+.toc {{ margin: 0; padding: 0; list-style: none; counter-reset: toc; }}
+.toc li {{
+  position: relative; font-size: 38px; line-height: 1.45;
+  padding: 18px 0 18px 70px; border-top: 1px solid var(--line); color: var(--ink);
+}}
+.toc li:last-child {{ border-bottom: 1px solid var(--line); }}
+.toc li::before {{
+  counter-increment: toc; content: counter(toc, decimal-leading-zero);
+  position: absolute; left: 0; top: 18px;
+  font-family: var(--serif); color: var(--accent); font-size: 34px; font-weight: 700;
 }}
 .footer {{
-  margin-top: auto;
-  padding-top: 36px;
-  display: flex;
-  justify-content: space-between;
-  color: #6b7280;
-  font-size: 26px;
+  margin-top: auto; padding-top: 38px;
+  display: flex; align-items: center; justify-content: space-between;
+  color: var(--sub); font-size: 25px; letter-spacing: .06em;
 }}
 .pill {{
-  border: 2px solid rgba(31,41,51,.16);
-  border-radius: 999px;
-  padding: 10px 18px;
-  background: rgba(255,255,255,.58);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 11px 22px; background: rgba(255,255,255,.45);
 }}
+.page {{ font-family: var(--serif); letter-spacing: .12em; }}
 </style>
 </head>
 <body>
-<main class="card">
-  <div class="kicker">{html.escape(card.kicker)}</div>
-  <h1>{html.escape(card.title)}</h1>
-  <section class="body">{paras}</section>
-  <footer class="footer">
-    <span class="pill">技术长图文</span>
-    <span>{idx:02d}/{total:02d}</span>
-  </footer>
+<main class="card{cover_class}">
+  {'<div class="ring"></div>' if is_cover else ''}
+  {watermark}
+  <div class="inner">
+    <div class="eyebrow">{html.escape(card.kicker)}</div>
+    <h1>{html.escape(card.title)}</h1>
+    <div class="rule"></div>
+    <section class="body">{paras}</section>
+    {toc_html}
+    <footer class="footer">
+      <span class="pill">{pill_label}</span>
+      <span class="page">{idx:02d} / {total:02d}</span>
+    </footer>
+  </div>
 </main>
 </body>
 </html>
 """
 
 
+# macOS ships Chrome inside an .app bundle that is not on PATH. Return the REAL binary
+# path (not a symlink) — Chrome resolves its Frameworks/ relative to argv[0], so a bare
+# symlink on PATH crashes; the absolute in-bundle path renders fine headless.
+CHROME_CANDIDATES = (
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+)
+
+
 def find_chrome() -> str | None:
-    for name in ("google-chrome", "chromium", "chromium-browser"):
+    for name in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome"):
         path = shutil.which(name)
         if path:
             return path
+    for cand in CHROME_CANDIDATES:
+        if Path(cand).exists():
+            return cand
     return None
 
 
@@ -405,7 +495,9 @@ def write_manifest(
     rendered: list[str],
     citations: set[str],
     unverified_numbers: list[str],
+    persisted_html: list[str] | None = None,
 ) -> None:
+    persisted_html = persisted_html or []
     manifest = {
         "platform": "xiaohongshu",
         "format": "long_image_post",
@@ -422,7 +514,7 @@ def write_manifest(
                 "index": i,
                 "kind": card.kind,
                 "title": card.title,
-                "html": f"card_{i:02d}.html",
+                "html": f"card_{i:02d}.html" if f"card_{i:02d}.html" in persisted_html else None,
                 "png": f"card_{i:02d}.png" if f"card_{i:02d}.png" in rendered else None,
             }
             for i, card in enumerate(cards, start=1)
@@ -447,7 +539,10 @@ def generate_package(
 ) -> dict:
     meta = meta or {}
     text = input_path.read_text(encoding="utf-8")
-    title, sections, refs, citations = parse_markdown(text)
+    title, sections, refs, citations, parsed_tags = parse_markdown(text)
+    # Precedence: explicit --tags > hashtags authored in the draft > DEFAULT_TAGS. Either
+    # way the hashtags live in the caption only, never on a card.
+    tags = tags or parsed_tags or DEFAULT_TAGS
     cards = build_cards(
         title, sections, refs, citations,
         cover_title=meta.get("cover_title"),
@@ -456,41 +551,60 @@ def generate_package(
 
     out_dir.mkdir(parents=True, exist_ok=True)
     rendered: list[str] = []
+    persisted_html: list[str] = []
     total = len(cards)
+    # The PNGs are the deliverable. When rendering, the HTML is a transient render input
+    # (written to a temp file, screenshotted, discarded) so the post folder holds only
+    # images. HTML is persisted to out_dir ONLY when we cannot render (--no-render / no
+    # Chrome) — it is then the sole reviewable artifact (and what CI checks).
+    chrome = find_chrome() if render else None
+    if render and not chrome:
+        print("WARN: Chrome not found; writing HTML cards only", file=sys.stderr)
+        render = False
+
+    def persist_html(i: int, markup: str) -> None:
+        path = out_dir / f"card_{i:02d}.html"
+        path.write_text(markup, encoding="utf-8")
+        persisted_html.append(path.name)
+
     for i, card in enumerate(cards, start=1):
-        html_path = out_dir / f"card_{i:02d}.html"
+        markup = html_card(card, i, total)
         png_path = out_dir / f"card_{i:02d}.png"
-        html_path.write_text(html_card(card, i, total), encoding="utf-8")
-        if render:
-            chrome = find_chrome()
-            if not chrome:
-                print("WARN: Chrome not found; wrote HTML cards only", file=sys.stderr)
-                render = False
+        if not render:
+            persist_html(i, markup)
+            continue
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".html", delete=False, encoding="utf-8", dir=out_dir
+        ) as tf:
+            tf.write(markup)
+            tmp_html = Path(tf.name)
+        try:
+            render_png(tmp_html, png_path, chrome, render_timeout)
+            rendered.append(png_path.name)
+        except subprocess.TimeoutExpired:
+            if png_path.exists() and png_path.stat().st_size > 0:
+                print(f"WARN: render timed out after writing {png_path.name}; accepting PNG",
+                      file=sys.stderr)
+                rendered.append(png_path.name)
             else:
-                try:
-                    render_png(html_path, png_path, chrome, render_timeout)
-                except subprocess.TimeoutExpired:
-                    if png_path.exists() and png_path.stat().st_size > 0:
-                        print(f"WARN: Chrome render timed out after writing {png_path.name}; accepting PNG",
-                              file=sys.stderr)
-                        rendered.append(png_path.name)
-                    else:
-                        print(f"WARN: Chrome render timed out for {html_path.name}; kept HTML only",
-                              file=sys.stderr)
-                        render = False
-                except subprocess.CalledProcessError as exc:
-                    detail = (exc.stderr or str(exc)).strip().splitlines()[-1:]
-                    suffix = f" ({detail[0]})" if detail else ""
-                    print(f"WARN: Chrome render failed for {html_path.name}: {exc}{suffix}",
-                          file=sys.stderr)
-                    render = False
-                else:
-                    rendered.append(png_path.name)
+                print(f"WARN: render timed out for card {i:02d}; falling back to HTML",
+                      file=sys.stderr)
+                render = False
+                persist_html(i, markup)
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or str(exc)).strip().splitlines()[-1:]
+            suffix = f" ({detail[0]})" if detail else ""
+            print(f"WARN: render failed for card {i:02d}: {exc}{suffix}; falling back to HTML",
+                  file=sys.stderr)
+            render = False
+            persist_html(i, markup)
+        finally:
+            tmp_html.unlink(missing_ok=True)
 
     caption = caption_text(title, sections, citations, tags, override=meta.get("caption"))
     (out_dir / "post_xiaohongshu.txt").write_text(caption, encoding="utf-8")
     unverified = caption_unverified_numbers(caption, text)
-    write_manifest(out_dir, title, cards, rendered, citations, unverified)
+    write_manifest(out_dir, title, cards, rendered, citations, unverified, persisted_html)
     return {
         "title": title,
         "cover_title": cards[0].title if cards else title,
@@ -513,8 +627,10 @@ def main(argv=None) -> int:
                     help="exit nonzero if the caption contains a number absent from the verified body")
     args = ap.parse_args(argv)
 
-    tags = [x.strip() for x in args.tags.split(",")] if args.tags else DEFAULT_TAGS
-    tags = [x for x in tags if x]
+    # None here lets generate_package fall back to draft-authored hashtags, then DEFAULT_TAGS.
+    tags = [x.strip() for x in args.tags.split(",")] if args.tags else None
+    if tags is not None:
+        tags = [x for x in tags if x]
     meta = json.loads(Path(args.meta).read_text(encoding="utf-8")) if args.meta else {}
     result = generate_package(
         Path(args.input), Path(args.out_dir), not args.no_render, tags, args.render_timeout, meta=meta,

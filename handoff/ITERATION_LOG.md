@@ -11,6 +11,40 @@ carry the detail.
 
 ---
 
+## 2026-06-30 — #17 xhs cards: paste-and-post redesign (density, layout, tone rules)
+- **What:** `platforms/xiaohongshu/adapter.py` — (a) `MAX_BODY_CHARS` 430→680 so a card's
+  body fills the 1440px height (was top-third only) → fewer, denser cards, not a fixed 10;
+  (b) `html_card()` redesigned borrowing the course `beautiful-html` `cartesian` aesthetic —
+  warm neutral palette, CJK serif titles, letter-spaced eyebrow, accent bar, faded
+  page-number watermark; (c) `find_chrome()` finds the macOS `.app` binary so PNG render
+  needs no manual wrapper; (d) **cover merges with the "这篇讲什么" reading route** (no sparse
+  standalone outline card — hook + map on image 1); (e) **dropped the 参考来源 card**;
+  (f) **`[Sn]` stripped from rendered cards** (kept in final.md for the audit + manifest
+  citation_ids); (g) **PNG-only output** when rendering (HTML only as the `--no-render`
+  fallback); (h) `parse_markdown` extracts a trailing all-hashtag line into the caption's
+  tag block (precedence: --tags > draft hashtags > DEFAULT_TAGS) so author-chosen tags are
+  used AND never burned into a card. Tone rules stored in `style_patterns.md` §3 +
+  `behavior_notes/xiaohongshu-output-mode.md`: bans 「岁月静好」「最香的」「吃(素材)」「开发者
+  玩具」「直白(误用)」; sentence-structure 翻译腔 rule (no English inversion/endless-append;
+  vague 「一条新闻」ok; 中文省略主语; don't cluster a word; frame demos as 「亲测/分享」not
+  「不是官方说明」); §7 + the note add a 平台敏感词 rule (no VPN/翻墙; region lock said vaguely).
+  Round 3 (from the author's published-post edits): §3 adds no brand+product stacking
+  (谷歌Gemini→Gemini), 影子→审美, hedge→confident (没那么容易→绝对), 第一人称踩坑 > 抽象名词;
+  `xiaohongshu-baokuan-paradigm.md` caption section gets these + a process note (the meta
+  caption is a separate hand-written field — tone-edit it in the same pass as the body).
+  CI: overflow test imports `MAX_BODY_CHARS`; builds-package asserts `card_count>=2` +
+  `cards[0].kind=="cover"`.
+- **Why:** Hanfei feedback — cards too sparse / wasted swipes, layout not 美观, and the
+  deliverable should be paste-and-post (no [Sn]/refs/HTML clutter); plus tone fixes.
+- **Risk:** 680 is render-verified for the current type scale — a font/padding change needs
+  a re-render check (a clipped card ships silently). Serif display needs a CJK serif (macOS
+  Songti SC); falls back to sans. `[Sn]` only stripped at render — final.md still must pass
+  the citation audit (it does).
+- **Verified:** re-rendered article_nano_banana_2 (10→cover+3 sections, body fills ~85-90%,
+  no overflow); citation audit `--strict` PASS (927字, 7/7 cited, 0 WARN); CI fixtures pass
+  locally (compile / builds-package card_count + cover kind / long-paragraph max≤cap /
+  meta_good check-caption / meta_bad fails).
+
 ## 2026-07-01 — #16 outline.json schema + scaffold validator (Cursor #5 + #6)
 - **What:** #5 — `outline.json` is now the machine-readable outline (stable `id` per item +
   source_ids); `tools/outline_ids.py` lints it and emits the id list, so
