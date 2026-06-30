@@ -87,7 +87,8 @@ def main(argv=None):
         text = fh.read()
 
     env = load_env(args.env)
-    api_key = env.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    api_key = (env.get("GEMINI_API_KEY") or env.get("GOOGLE_API_KEY")
+               or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
     model = env.get("GEMINI_MODEL") or os.environ.get("GEMINI_MODEL") or DEFAULT_MODEL
     price_in = float(env.get("GEMINI_PRICE_IN", DEFAULT_PRICE_IN))
     price_out = float(env.get("GEMINI_PRICE_OUT", DEFAULT_PRICE_OUT))
