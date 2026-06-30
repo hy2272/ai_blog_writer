@@ -37,9 +37,12 @@ what research found — the gap citation_audit cannot see.
 
 **S3 — write → fact-check → fix (per section).** For each section, dispatch `writer`
 first. Once `sections/sec<k>_draft.md` exists, dispatch `fact-checker` against that exact
-draft. If fact-check reports any non-SUPPORTED claim, send the findings back to `writer`
-for a targeted fix before grounding/audit. The fact-checker may pre-read the contract and
-source pack, but it cannot verify claims until the draft exists.
+draft. It writes `sections/sec<k>_factcheck.json` and runs `tools/factcheck_gate.py` on it
+(exit 1 on ANY non-SUPPORTED claim; FAILs closed on an empty verdict). The gate exit — not
+the prose — is what you gate on: FAIL → send the findings back to `writer` for a targeted
+fix before grounding/audit. The fact-checker may pre-read the contract and source pack, but
+it cannot verify claims until the draft exists. This is the machine antidote to the
+green-dashboard trap (cited ≠ true).
 
 **S3→4 GROUNDING GATE (2→3 faithfulness).** After a section is drafted and fact-checked,
 dispatch `grounding-checker` for stage `2->3`: is each claim in the Chinese draft grounded
@@ -79,7 +82,7 @@ generate a handoff doc. Do not auto-generate; do not nag mid-stage.
 - editorial: `CONTRACTS COMPLETE — <n> section contracts written`
 - grounding-checker: `GROUNDING <stage>: PASS` or `GROUNDING <stage>: FAIL — <n> ungrounded`
 - writer: `SECTION <k> DRAFTED — sec<k>_draft.md written`
-- fact-checker: `FACT-CHECK COMPLETE — section <k>: <n> claims, <m> unsourced`
+- fact-checker: `FACT-CHECK COMPLETE — section <k>: <n> claims, factcheck_gate <PASS|FAIL>`
 - citation-auditor: `AUDIT <k>: PASS` or `AUDIT <k>: FAIL — <n> findings`
 - humanizer: `HUMANIZE COMPLETE — draft de-flavored, audit re-run green`
 - editorial-reviewer: `REVIEW COMPLETE — <b> BLOCKER / <w> WARN / <n> NOTE`

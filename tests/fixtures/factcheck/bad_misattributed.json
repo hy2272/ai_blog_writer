@@ -1,0 +1,22 @@
+{
+  "stage": "S3-fact-check",
+  "section": 1,
+  "claims": [
+    {
+      "id": 1,
+      "claim": "Anthropic 今天发布了 Claude Sonnet 5。",
+      "citation": "S1",
+      "verdict": "SUPPORTED",
+      "evidence": "S1 confirms the release.",
+      "fix": ""
+    },
+    {
+      "id": 2,
+      "claim": "Sonnet 5 在所有基准上都超过了 GPT-5。",
+      "citation": "S1",
+      "verdict": "MISATTRIBUTED",
+      "evidence": "S1 makes no GPT-5 comparison; this is an overreach beyond what the source says.",
+      "fix": "drop the comparison or cite a source that actually benchmarks both"
+    }
+  ]
+}
