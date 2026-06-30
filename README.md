@@ -101,6 +101,18 @@ supplies the hook `cover_title` + shortened `caption` (see
 `common/behavior_notes/xiaohongshu-baokuan-paradigm.md`); `--check-caption` fails if the
 caption uses a number absent from the verified body.
 
+### Optional: S0 topic discovery via Apify
+
+To scout what's fresh before picking an angle, pull dated AI headlines (each carries a
+publish date + publisher). Needs `APIFY_API_KEY` in `.env` (see `.env.example`). This is a
+**discovery aid, not a citation source** — the `url` is a Google News redirect, so S1 still
+fetches the real primary source before anything is cited.
+
+```
+python3 tools/news_discover.py --query "AI agents" --max 20 --timeframe 7d \
+  --out articles/article_<slug>/news_discovery.json
+```
+
 ### Optional: a final Chinese polish via Gemini
 
 After both oracles are green, an optional last pass sends the finished text through Gemini
@@ -136,6 +148,8 @@ tools/
   grounding_gate.py    oracle 2 — faithfulness
   audit_article.py     article-level wrapper over section/final audits
   xhs_image_post.py    default Xiaohongshu long-image post package builder
+  news_discover.py     S0 topic discovery — fresh dated AI headlines via Apify
+  apify_client.py      thin stdlib Apify REST client (run an actor, get dataset items)
   gemini_polish.py     optional final fluency pass
 articles/
   _TEMPLATE/           per-article scaffold
