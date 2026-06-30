@@ -22,8 +22,14 @@ Key lives in a gitignored `.env` at the project root (`GEMINI_API_KEY`, optional
 so normal use never trips it. If a planned run could exceed $1 (a bulk pass over many
 posts), STOP and ask Hanfei first — state the necessity and let her decide.
 
-**Re-audit after polish:** the polish can subtly reword a cited sentence. Re-run
-`citation_audit.py` on the polished text before shipping; if a marker was dropped, fix it.
+**Re-audit after polish — and DIFF THE FACTS, not just the markers:** the polish can
+subtly reword a cited sentence AND corrupt a fact while "improving" it. Re-run
+`citation_audit.py`, and separately diff every number / date / discount / comparison /
+negation against the pre-polish text. Watch discounts and comparatives especially.
+- **Real miss caught (2026-06-30, Cursor post):** Gemini "fixed" `打 75% off` → `打75折`,
+  which is the OPPOSITE deal (`75% off` = pay 25% ≈ 2.5 折; `75 折` = pay 75%). The
+  language was better but the fact was inverted. Lesson: fluency-only never means
+  fact-safe — the machine/diff layer is what makes it safe, not the LLM's good intentions.
 
 **Why:** the writer/humanizer already aim for native voice, but a dedicated strong-Chinese
 model as a final pass catches residual 翻译腔 the in-house chain misses — without ever
