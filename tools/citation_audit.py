@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+"""citation_audit.py — the machine-checkable correctness oracle for prose.
+
+This is the article-writer analog of sas2pyspark's `csv_compare_v2` + `fidelity-auditor`.
+Prose has no "output equality" oracle, but an AI-hot-topic article DOES have a ground
+truth: the facts. This tool checks the part of article quality that is mechanically
+verifiable, so the soft LLM-judge only has to cover what a machine genuinely cannot.
+
+Checks (each is independently reported; any FAIL → non-zero exit):
+  1. citation-validity   every [Sn] marker used in the draft exists in the source pack
+  2. uncited-claim       claim-like sentences (numbers / dates / claim verbs) with no
+                         nearby [Sn] marker  ->  hallucination risk ("裸论断")
+  3. source-freshness    every cited source has a date; warn if older than --max-age-days
+                         (AI news goes stale fast — this is the "PHI" hard edge here)
+  4. source-utilization  sources in the pack never cited  ->  warn (over-broad research)
+  5. word-count          draft length within the contract's [word_min, word_max]
+  6. required-coverage   every contract `required_keywords` phrase appears in the draft
+  7. link-resolves       (opt-in, --check-links) every cited URL returns HTTP < 400
+
+Exit code: 0 = PASS (no FAIL-level findings), 1 = FAIL. WARN-level findings never
+fail the gate on their own; use --strict to promote WARN -> FAIL.
+
+Inputs:
+  draft.md            the section or full-article markdown
+  --source-pack FILE  JSON: {"sources":[{"id":"S1","url":..,"title":..,"date":"YYYY-MM-DD"}]}
+  --contract FILE     optional JSON: {"word_min":..,"word_max":..,"required_keywords":[..],
+                                      "must_cite":["S1","S3"]}
+  --as-of YYYY-MM-DD  reference date for freshness (no system clock dependence)
+  --max-age-days N    freshness threshold (default 180)
+  --check-links       resolve cited URLs over the network (default off → deterministic)
+  --strict            treat WARN findings as failures
+
+Citation marker convention in the draft:  [S1]  [S1,S3]  [S1][S7]
+"""
+import argparse
+import json
+import re
+import sys
+from datetime import date
+
+
+CITE_RE = re.compile(r"\[(S\d+(?:\s*,\s*S\d+)*)\]")
+# Sentence split must be CJK-aware: Chinese terminators (。！？；) are NOT followed by a
+# space, so requiring trailing whitespace (the Latin rule) would merge a whole Chinese
+# paragraph into one "sentence" and neuter the uncited-claim check. Split AFTER a CJK
+# terminator directly; for Latin .!? still require following whitespace so decimals
+# (4.6) and URLs are not split.
+SENT_SPLIT_RE = re.compile(r"(?<=[。！？；])\s*|(?<=[.!?])\s+|\n+")
+FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
+
+# A sentence is "claim-like" (asserts a checkable fact) if it carries hard data or a
+# reporting/announcement verb. Heuristic on purpose: it flags CANDIDATES for a human,
+# exactly like a linter — false positives are cheaper than a shipped hallucination.
+CLAIM_SIGNAL_RE = re.compile(
+    r"\d|%|％|\$|￥|"
+    r"(?:亿|万|百万|十亿)|"
+    r"(?:发布|宣布|推出|上线|达到|增长|下降|融资|开源|超过|首次|据|表示|报道|声称)|"
+    r"\b(?:announced|released|launched|reported|according|raised|reached|"
+    r"billion|million|percent|surged|dropped|claims?|unveiled)\b",
+    re.IGNORECASE,
+)
+
+
+class Finding:
+    def __init__(self, level, check, message):
+        self.level = level  # "FAIL" | "WARN"
+        self.check = check
+        self.message = message
+
+    def __str__(self):
+        return f"  [{self.level}] {self.check}: {self.message}"
+
+
+def strip_code(text):
+    return FENCE_RE.sub("", text)
+
+
+def parse_citations(text):
+    """Return the set of source ids referenced anywhere in the text."""
+    ids = set()
+    for m in CITE_RE.finditer(text):
+        for tok in m.group(1).split(","):
+            ids.add(tok.strip())
+    return ids
+
+
+def load_json(path):
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def check_citation_validity(used_ids, pack_ids):
+    out = []
+    for cid in sorted(used_ids):
+        if cid not in pack_ids:
+            out.append(Finding("FAIL", "citation-validity",
+                               f"draft cites {cid} but it is not in the source pack"))
+    return out
+
+
+def check_uncited_claims(text):
+    out = []
+    body = strip_code(text)
+    for raw in SENT_SPLIT_RE.split(body):
+        sent = raw.strip()
+        if len(sent) < 12:
+            continue
+        if sent.lstrip().startswith(("#", ">", "|", "-", "*")):
+            continue  # headings / quotes / list scaffolding / tables
+        if CLAIM_SIGNAL_RE.search(sent) and not CITE_RE.search(sent):
+            snippet = sent[:70].replace("\n", " ")
+            out.append(Finding("FAIL", "uncited-claim",
+                               f"claim-like sentence has no [Sn] source: \"{snippet}…\""))
+    return out
+
+
+def check_freshness(used_ids, by_id, as_of, max_age_days):
+    out = []
+    for cid in sorted(used_ids):
+        src = by_id.get(cid)
+        if not src:
+            continue  # already reported by citation-validity
+        d = src.get("date")
+        if not d:
+            out.append(Finding("FAIL", "source-freshness",
+                               f"{cid} is cited but has no date in the pack"))
+            continue
+        try:
+            sd = date.fromisoformat(d)
+        except ValueError:
+            out.append(Finding("FAIL", "source-freshness",
+                               f"{cid} has an unparseable date: {d!r}"))
+            continue
+        age = (as_of - sd).days
+        if age > max_age_days:
+            out.append(Finding("WARN", "source-freshness",
+                               f"{cid} is {age} days old (> {max_age_days}); "
+                               f"verify it is still current for an AI hot-topic piece"))
+    return out
+
+
+def check_utilization(used_ids, pack_ids):
+    out = []
+    for cid in sorted(pack_ids):
+        if cid not in used_ids:
+            out.append(Finding("WARN", "source-utilization",
+                               f"{cid} is in the pack but never cited (over-broad research?)"))
+    return out
+
+
+def check_word_count(text, contract):
+    out = []
+    wmin = contract.get("word_min")
+    wmax = contract.get("word_max")
+    # CJK-aware length: count CJK characters individually + whitespace-split tokens.
+    cjk = len(re.findall(r"[一-鿿]", text))
+    latin = len(re.findall(r"[A-Za-z][A-Za-z'-]*", text))
+    n = cjk + latin
+    if wmin is not None and n < wmin:
+        out.append(Finding("FAIL", "word-count", f"draft is {n} words, below word_min {wmin}"))
+    if wmax is not None and n > wmax:
+        out.append(Finding("FAIL", "word-count", f"draft is {n} words, above word_max {wmax}"))
+    return out, n
+
+
+def check_required_coverage(text, contract):
+    out = []
+    low = text.lower()
+    for kw in contract.get("required_keywords", []):
+        if kw.lower() not in low:
+            out.append(Finding("FAIL", "required-coverage",
+                               f"contract requires keyword/claim \"{kw}\" — not found in draft"))
+    return out
+
+
+def check_must_cite(used_ids, contract):
+    out = []
+    for cid in contract.get("must_cite", []):
+        if cid not in used_ids:
+            out.append(Finding("FAIL", "required-coverage",
+                               f"contract requires citing {cid} — not cited in draft"))
+    return out
+
+
+def check_links(used_ids, by_id):
+    import urllib.request
+    out = []
+    for cid in sorted(used_ids):
+        src = by_id.get(cid)
+        if not src or not src.get("url"):
+            continue
+        url = src["url"]
+        try:
+            req = urllib.request.Request(url, method="HEAD",
+                                         headers={"User-Agent": "citation-audit/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status >= 400:
+                    out.append(Finding("FAIL", "link-resolves",
+                                       f"{cid} URL returned HTTP {resp.status}: {url}"))
+        except Exception as exc:  # noqa: BLE001 — network is best-effort
+            out.append(Finding("WARN", "link-resolves",
+                               f"{cid} URL could not be reached ({exc.__class__.__name__}): {url}"))
+    return out
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Machine-checkable citation/fact audit for prose.")
+    ap.add_argument("draft", help="path to the section/article markdown")
+    ap.add_argument("--source-pack", required=True, help="JSON source pack")
+    ap.add_argument("--contract", help="optional JSON contract (word_min/max, required_keywords, must_cite)")
+    ap.add_argument("--as-of", help="reference date YYYY-MM-DD for freshness (default: pack max date)")
+    ap.add_argument("--max-age-days", type=int, default=180)
+    ap.add_argument("--check-links", action="store_true")
+    ap.add_argument("--strict", action="store_true", help="promote WARN findings to failures")
+    args = ap.parse_args(argv)
+
+    with open(args.draft, encoding="utf-8") as fh:
+        draft = fh.read()
+    pack = load_json(args.source_pack)
+    contract = load_json(args.contract) if args.contract else {}
+
+    sources = pack.get("sources", [])
+    by_id = {s["id"]: s for s in sources}
+    pack_ids = set(by_id)
+    used_ids = parse_citations(draft)
+
+    if args.as_of:
+        as_of = date.fromisoformat(args.as_of)
+    else:
+        dates = [date.fromisoformat(s["date"]) for s in sources if s.get("date")]
+        as_of = max(dates) if dates else date.fromisoformat("2000-01-01")
+
+    findings = []
+    findings += check_citation_validity(used_ids, pack_ids)
+    findings += check_uncited_claims(draft)
+    findings += check_freshness(used_ids, by_id, as_of, args.max_age_days)
+    findings += check_utilization(used_ids, pack_ids)
+    wc_findings, n_words = check_word_count(draft, contract)
+    findings += wc_findings
+    findings += check_required_coverage(draft, contract)
+    findings += check_must_cite(used_ids, contract)
+    if args.check_links:
+        findings += check_links(used_ids, by_id)
+
+    fails = [f for f in findings if f.level == "FAIL"]
+    warns = [f for f in findings if f.level == "WARN"]
+    if args.strict:
+        fails += warns
+        warns = []
+
+    print(f"citation_audit: {args.draft}")
+    print(f"  words={n_words}  sources={len(pack_ids)}  cited={len(used_ids)}  "
+          f"as_of={as_of}  FAIL={len(fails)}  WARN={len(warns)}")
+    for f in findings:
+        print(f)
+
+    if fails:
+        print("\nRESULT: FAIL")
+        return 1
+    print("\nRESULT: PASS")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

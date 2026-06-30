@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# macOS
+.DS_Store
+
+# Playwright MCP scratch
+.playwright-mcp/
+
+# Scratch / temp
+*.tmp
+scratch/
+
+# Generated article outputs — never push real posts to a public repo.
+# Real article workspaces are articles/article_<slug>/ ; keep them local.
+articles/article_*/
+# ...but DO keep the scaffold template and the synthetic worked example (smoke-test fixtures).
+!articles/_TEMPLATE/
+!articles/article_demo/
+!articles/article_demo/**
+

@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "id": "S1",
+      "url": "https://example.com/primary-source",
+      "title": "Replace with the source's real title",
+      "date": "2026-06-01",
+      "publisher": "Publisher / lab name",
+      "note": "What claim this source supports (one line)"
+    }
+  ]
+}

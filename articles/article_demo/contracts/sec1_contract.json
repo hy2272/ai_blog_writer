@@ -1,0 +1,6 @@
+{
+  "word_min": 80,
+  "word_max": 400,
+  "required_keywords": ["推理", "长上下文"],
+  "must_cite": ["S1", "S2", "S3"]
+}

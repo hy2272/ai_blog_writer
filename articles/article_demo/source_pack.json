@@ -1,0 +1,28 @@
+{
+  "sources": [
+    {
+      "id": "S1",
+      "url": "https://microsoft.ai/news/building-a-hillclimbing-machine-launching-seven-new-mai-models/",
+      "title": "Building a hill-climbing machine: Launching seven new MAI models",
+      "date": "2026-06-02",
+      "publisher": "Microsoft AI",
+      "note": "Microsoft announced seven in-house MAI models; flagship MAI-Thinking-1 preferred to Claude Sonnet 4.6 in blind human side-by-side evals"
+    },
+    {
+      "id": "S2",
+      "url": "https://llm-stats.com/llm-updates",
+      "title": "AI Updates Today (June 2026) — Latest AI Model Releases",
+      "date": "2026-06-09",
+      "publisher": "llm-stats",
+      "note": "Anthropic Claude Fable 5 released 2026-06-09 — a reasoning model with a 1M-token context window"
+    },
+    {
+      "id": "S3",
+      "url": "https://www.buildfastwithai.com/blogs/ai-news-today-june-8-2026",
+      "title": "AI News Today — June 8, 2026: 16 Biggest Stories",
+      "date": "2026-06-08",
+      "publisher": "BuildFastWithAI",
+      "note": "OpenAI released the GPT-5.5 family (GPT-5.5 Pro / Instant) in the same June window"
+    }
+  ]
+}
