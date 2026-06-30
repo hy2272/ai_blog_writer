@@ -9,6 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need base history for the iteration-log diff check
+
+      - name: Every PR appends to the iteration log
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qx "handoff/ITERATION_LOG.md"; then
+            echo "OK: handoff/ITERATION_LOG.md was updated"
+          else
+            echo "::error::This PR does not append to handoff/ITERATION_LOG.md — see the convention in CLAUDE.md."
+            exit 1
+          fi
 
       - name: Compile Python tools
         run: python3 -m py_compile tools/*.py platforms/xiaohongshu/*.py
