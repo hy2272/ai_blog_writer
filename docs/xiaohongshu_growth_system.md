@@ -98,15 +98,16 @@ For each high-scoring topic, generate multiple contracts before writing:
 - **Utility:** checklist, tutorial, prompt, workflow.
 - **Comparison:** before/after, tool A vs tool B.
 - **Personal note:** first-person learning or usage reflection.
-- **Carousel script:** 6-9 cards with one idea per card.
-- **Short Xiaohongshu text:** hook + body + CTA + hashtags.
+- **Xiaohongshu long-image post (default):** cover + outline + 4-8 dense technical cards
+  + source card. This is the primary output for technical posts.
+- **Short Xiaohongshu text:** hook + body + CTA + hashtags, only when explicitly requested.
 
 Each variant gets a `content_contract.json`:
 
 ```json
 {
   "platform": "xiaohongshu",
-  "format": "short_post",
+  "format": "long_image_post",
   "target_reader": "Chinese AI-curious developer",
   "hook_type": "concrete dated fact",
   "word_min": 350,
@@ -122,13 +123,21 @@ Each variant gets a `content_contract.json`:
 Generalize the current article pipeline into content types:
 
 - `article`: current 3-5 section pipeline.
-- `xiaohongshu_text`: one compact section plus title/hashtags.
-- `carousel`: card-by-card contracts; each card is a verifiable unit.
+- `xiaohongshu_long_image`: default Xiaohongshu output. Card-by-card image package; each
+  card is a verifiable unit.
+- `xiaohongshu_text`: one compact section plus title/hashtags, opt-in only.
 - `thread`: one claim cluster per post in the thread.
 - `newsletter`: longer article plus subject-line variants.
 
-The current agents can stay, but add a `format_adapter` layer that converts an approved
-source pack and angle into the right contract schema for each type.
+The current agents can stay. The first `format_adapter` is implemented as
+`platforms/xiaohongshu/adapter.py`, exposed through:
+
+```
+python3 tools/xhs_image_post.py <final.md> --out-dir <article>/assets/xhs
+```
+
+It renders the verified final article into card HTML, PNGs when Chrome is available,
+`post_xiaohongshu.txt`, and `content_manifest.json`.
 
 ### 5. Verification gates
 
@@ -148,7 +157,7 @@ Add a `content_manifest.json` per output:
 {
   "content_id": "cursor-mobile-short-001",
   "topic_id": "cursor-mobile-2026-06-29",
-  "format": "xiaohongshu_text",
+  "format": "long_image_post",
   "variant": "workflow-change-angle",
   "source_pack": "source_pack.json",
   "contract": "contracts/post_contract.json",
@@ -249,11 +258,12 @@ growth/
   metrics/                 # raw and normalized platform metrics
 platforms/
   xiaohongshu/
-    adapter.py             # render text/assets for the platform
+    adapter.py             # render default long-image post cards/assets
     publisher.py           # official API or approved queue integration
     metrics.py             # metrics ingestion
 tools/
   score_topics.py
+  xhs_image_post.py        # CLI wrapper for the default long-image post adapter
   create_variants.py
   audit_content.py
   schedule_publish.py
