@@ -59,6 +59,36 @@ jobs:
             --contract articles/article_demo/contracts/sec1_contract.json \
             --as-of 2026-06-09
 
+      - name: run_oracle dispatcher passes through the oracle verbatim
+        run: |
+          # exit-code parity: dispatcher must equal a direct oracle call (green + red)
+          python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/good_post.json >/dev/null; direct_ok=$?
+          python3 tools/run_oracle.py --mode aesthetic_lifestyle tests/fixtures/aesthetic/good_post.json >/dev/null; disp_ok=$?
+          test "$direct_ok" = "0" && test "$disp_ok" = "0" || { echo "green passthrough mismatch"; exit 1; }
+          python3 tools/run_oracle.py --mode aesthetic tests/fixtures/aesthetic/bad_em_dash.json >/dev/null && { echo "bad fixture should fail"; exit 1; } || true
+          # trailing oracle args are forwarded (factual needs --source-pack)
+          python3 tools/run_oracle.py --mode tech_news tests/fixtures/article_good_final/sections/sec1_draft.md \
+            --source-pack tests/fixtures/article_good_final/source_pack.json >/dev/null || { echo "factual passthrough failed"; exit 1; }
+          # a mode whose oracle has not shipped fails honestly (exit 3), not silently
+          python3 tools/run_oracle.py --mode explainer tests/fixtures/aesthetic/good_post.json; rc=$?
+          test "$rc" = "3" || { echo "explainer (no oracle) should exit 3, got $rc"; exit 1; }
+
+      - name: gemini_polish offline diff catches oracle regressions (no API)
+        run: |
+          # aesthetic: injecting a 破折号 must flip the oracle PASS->FAIL in the before/after delta
+          python3 - <<'PY'
+          import json
+          p=json.load(open("tests/fixtures/aesthetic/good_post.json"))
+          p["cards"][1]["text"]="煮一杯咖啡——看热气散开。"
+          json.dump(p,open("/tmp/aes_polished.json","w"),ensure_ascii=False,indent=2)
+          PY
+          out="$(python3 tools/gemini_polish.py tests/fixtures/aesthetic/good_post.json \
+            --mode aesthetic_lifestyle --polished /tmp/aes_polished.json --diff-html /tmp/aes_diff.html)"
+          echo "$out"
+          echo "$out" | grep -q "exit 0→1" || { echo "expected pre-PASS -> post-FAIL delta"; exit 1; }
+          echo "$out" | grep -q "em-dash" || { echo "delta should name the introduced em-dash"; exit 1; }
+          test -f /tmp/aes_diff.html || { echo "diff html not written"; exit 1; }
+
       - name: Positive grounding fixture passes
         run: |
           python3 tools/grounding_gate.py articles/article_demo/sections/grounding_2to3.json \
