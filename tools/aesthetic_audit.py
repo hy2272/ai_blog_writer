@@ -22,8 +22,9 @@ What it checks (each independently reported; any FAIL -> non-zero exit):
                         disagrees with the real card count (the 0X / 06 consistency) -> FAIL
   7. overline           overline missing -> WARN; overline mentions AI/AIGC/生成式 -> FAIL
                         (aesthetic-track HARD rule: don't say the content is AI-made)
-  8. quote-verification the ONE residual fact surface. A quote-card (quote:true or a whole-
-                        card 「…」) must have a matching record in `quotes`; a record that
+  8. quote-verification the ONE residual fact surface. A quote-card (quote:true, a whole-card
+                        「…」, or a card naming a work 《…》 with a 「…」 quote woven in) must have
+                        a matching record in `quotes`; a record that
                         names a work/attribution must be `verified` AND carry provenance
                         (`verified_source` URL or `verified_by`). `verified: true` alone is
                         self-certifying — the aesthetic version of the green-dashboard trap —
@@ -50,8 +51,12 @@ track's source_pack + contract):
     ],
     "caption": "… #生活美学 #治愈系日常",
     "hashtags": ["#生活美学", "#治愈系日常"],
-    "quotes": [{"text": "…", "work": "《情书》", "verified": true}]
+    "quotes": [{"text": "…", "work": "《情书》", "verified": true,
+                "verified_source": "https://… (or \"verified_by\": \"human@2026-07-01\")"}]
   }
+
+A `verified` quote MUST carry provenance (`verified_source` or `verified_by`); a bare
+`verified: true` is self-certifying and FAILs (see check 8).
 """
 import argparse
 import json
@@ -218,9 +223,22 @@ def _has_provenance(q):
     return bool(q.get("verified_source") or q.get("verified_by"))
 
 
+WORK_TITLE_RE = re.compile(r"《[^》]+》")
+INLINE_QUOTE_RE = re.compile(r"「[^」]+」")
+
+
 def _looks_like_quote_card(card):
     text = card_text(card).strip()
     return text.startswith(OPEN_QUOTE) and text.endswith(CLOSE_QUOTE)
+
+
+def _embeds_attributed_quote(card):
+    """A card that names a work (《…》) AND carries a 「…」 quote is an attributed quote even
+    if it is woven into prose ("我想起《情书》里的「你好吗？我很好」") and lacks quote:true — so
+    it still needs a verified record. Scoped to BOTH markers present to avoid firing on a
+    card that merely uses 「」 for emphasis."""
+    text = card_text(card)
+    return bool(WORK_TITLE_RE.search(text) and INLINE_QUOTE_RE.search(text))
 
 
 def _quote_record_for(card_text_stripped, quotes):
@@ -263,7 +281,9 @@ def check_quote_verification(post):
                                f"A bare boolean is self-certifying (the green-dashboard trap)"))
 
     for pos, card in enumerate(post.get("cards", []), 1):
-        is_quote_card = (isinstance(card, dict) and card.get("quote")) or _looks_like_quote_card(card)
+        is_quote_card = ((isinstance(card, dict) and card.get("quote"))
+                         or _looks_like_quote_card(card)
+                         or _embeds_attributed_quote(card))
         if not is_quote_card:
             continue
         rec = _quote_record_for(card_text(card), quotes)
