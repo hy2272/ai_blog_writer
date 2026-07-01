@@ -24,17 +24,22 @@ Read first: `.claude/orchestrator.md` (S0 track router), `common/style_patterns.
    fact contract; no source pack.
 
 3. **S3 — diversity by variants (the aesthetic substitute for temperature).** Dispatch the
-   `writer` **three times independently** (this harness cannot set a sampling temperature on
-   a subagent, so independent variants ARE the diversity knob). Each returns a full set of
-   card lines for the theme. Then **curate**: you (the orchestrator) merge the strongest line
-   per card into one final set — do not just pick one draft wholesale. Log the merge choices
-   in DECISIONS.md. Keep each card short (aesthetic_audit WARNs > 40 chars).
+   **`aesthetic-writer`** (NOT the factual `writer` — that one implements a contract + cites a
+   source pack, the wrong objective here) **three times independently**. This harness cannot
+   set a sampling temperature on a subagent, so independent variants ARE the diversity knob.
+   Each writes `sections/aesthetic_variant_<n>.json`. Then **curate**: you (the orchestrator)
+   merge the strongest line per card into one final set — do not just pick one variant
+   wholesale. Log the merge choices in DECISIONS.md. Keep each card short (aesthetic_audit
+   WARNs past ~32 chars).
 
 4. **Quote verification (the ONE residual fact surface).** If a card quotes a real film line /
    lyric / attribution, verify the exact wording + its work with a quick web check and record
-   it in the post JSON `quotes` list with `verified: true`. If you cannot verify, drop the
-   attribution (keep it as a free paraphrase). This is the aesthetic track's whole oracle for
-   facts.
+   it in the post JSON `quotes` list with BOTH `verified: true` AND provenance
+   (`verified_source`: the URL you checked, or `verified_by`: who@date). A bare `verified:true`
+   is self-certifying and the audit rejects it — provenance is the aesthetic version of the
+   news track's dated-URL rule. If you cannot verify, drop the attribution (keep it as a free
+   paraphrase). Every quote CARD must have a matching, verified record. This is the aesthetic
+   track's whole oracle for facts.
 
 5. **S5 — humanize.** Remove AI 味 per `style_patterns.md`. No 破折号. Overline stays 「生活美学」.
 
@@ -59,8 +64,16 @@ Read first: `.claude/orchestrator.md` (S0 track router), `common/style_patterns.
 8. **Visuals — decoupled from text.** Generate background images with
    `tools/gen_image.py` (prompt MUST say `no text`; all card text is rendered by the adapter,
    never burned into the AI image). Record provenance with `--manifest`; verify a prompt with
-   `--dry-run` (no API cost) before spending. Then render cards with
-   `platforms/xiaohongshu/adapter.py --style photo-triptych`.
+   `--dry-run` (no API cost) before spending. Reference the image files from the post JSON
+   (`images.cover_bands` / `images.body_images` / `images.font`).
+
+9. **Render from the audited JSON (single source of truth).** Render the SAME
+   `aesthetic_post.json` the audit passed — do NOT hand-write a separate markdown, which could
+   drift from the audited text:
+   `python3 platforms/xiaohongshu/adapter.py --aesthetic-json articles/article_<slug>/aesthetic_post.json --out-dir articles/article_<slug>/assets/xhs`
+   The adapter builds cards straight from the JSON (forces photo-triptych, no `[Sn]`), and
+   `content_manifest.json` records each card's `text` so the published cards provably match
+   the audited object.
 
 ## Hard rules (aesthetic track)
 - Do NOT run citation_audit / grounding / fact-check — they are a category error here.
