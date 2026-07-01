@@ -11,8 +11,8 @@ what needs taste, and let a deterministic tool catch the hard rules that do not.
 What it checks (each independently reported; any FAIL -> non-zero exit):
   1. em-dash            a 破折号 (— / ——) anywhere in card text or caption -> FAIL
                         (style_patterns §3 bans it; this stops relying on human eyes)
-  2. card-length        a single card longer than --max-card-chars (default 40) -> WARN
-                        (a card 读不下去 is a swipe lost)
+  2. card-length        a single card longer than --max-card-chars (default 32) -> WARN
+                        (this 栏目 is 一句一卡; 32 flags a card that started to crowd)
   3. banned-phrase      a 翻译腔/AI-味 phrase from common/banned_phrases.json -> FAIL/WARN
                         (shared blacklist, same data citation_audit consumes)
   4. quote-closure      「」 quote marks are unbalanced across the post -> FAIL
@@ -20,12 +20,19 @@ What it checks (each independently reported; any FAIL -> non-zero exit):
                         (aesthetic-track rule: the quote reads best as the final card)
   6. card-numbering     card indexes are not 1..N contiguous, or a card's `total`
                         disagrees with the real card count (the 0X / 06 consistency) -> FAIL
-  7. overline           overline missing -> WARN; overline mentions AI -> FAIL
+  7. overline           overline missing -> WARN; overline mentions AI/AIGC/生成式 -> FAIL
                         (aesthetic-track HARD rule: don't say the content is AI-made)
-  8. quote-verification the ONE residual fact surface. A quote that names a work/attribution
-                        but is not marked `verified: true` -> FAIL. This is the aesthetic
-                        track's shrunk oracle: verify the film line, everything else is free.
-  9. hashtags           no caption hashtags -> WARN (nothing ties the post to a theme)
+  8. quote-verification the ONE residual fact surface. A quote-card (quote:true or a whole-
+                        card 「…」) must have a matching record in `quotes`; a record that
+                        names a work/attribution must be `verified` AND carry provenance
+                        (`verified_source` URL or `verified_by`). `verified: true` alone is
+                        self-certifying — the aesthetic version of the green-dashboard trap —
+                        so it FAILs without provenance, mirroring the news track's dated-URL
+                        discipline. A free paraphrase with no attribution is fine.
+  9. card-rhythm        adjacent cards opening on the same character, or one CJK char
+                        recurring across most cards -> WARN (氛围 collapses on repetition;
+                        style_patterns "don't cluster the same word", now machine-checked)
+ 10. hashtags           no caption hashtags -> WARN (nothing ties the post to a theme)
 
 Exit code: 0 = PASS (no FAIL), 1 = FAIL. WARN never fails on its own; --strict promotes
 WARN -> FAIL. Mirrors citation_audit.py / factcheck_gate.py / grounding_gate.py.
@@ -55,11 +62,17 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BANNED = REPO_ROOT / "common" / "banned_phrases.json"
-# Any of these is a Chinese 破折号 (or its calque). A plain hyphen "-" is fine.
-EM_DASH_RE = re.compile(r"[—―⸺⸻]|--")
+# A Chinese 破折号 is U+2014 (—, usually doubled ——) / U+2015 (―) / the two-em variants.
+# The ASCII "--" was dropped on purpose: aesthetic cards never contain code (unlike the
+# news track, which strips code fences), so "--" here only produced false positives.
+EM_DASH_RE = re.compile(r"[—―⸺⸻]")
 OPEN_QUOTE = "「"
 CLOSE_QUOTE = "」"
-AI_RE = re.compile(r"\bAI\b|人工智能|AI\s*生成|AI\s*制作", re.IGNORECASE)
+# The aesthetic track must not advertise that the content is AI-made. Match liberally —
+# on this track an overline mentioning AI/AIGC/生成式 is never legitimate, so over-catching
+# is the safe direction (unlike the body, where "AI" is a normal topic word).
+AI_RE = re.compile(r"AI|AIGC|人工智能|生成式|智能生成|AI\s*生成|AI\s*制作", re.IGNORECASE)
+CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 
 
 class Finding:
@@ -195,20 +208,102 @@ def check_overline(post):
     return out
 
 
+def _quote_label(q):
+    return q.get("work") or q.get("attribution") or q.get("author") or "attributed quote"
+
+
+def _has_provenance(q):
+    """A verified quote must say WHO verified it and WHERE — not just carry a bare boolean.
+    Accepts a `verified_source` (URL/citation) or a `verified_by` (e.g. human@date)."""
+    return bool(q.get("verified_source") or q.get("verified_by"))
+
+
+def _looks_like_quote_card(card):
+    text = card_text(card).strip()
+    return text.startswith(OPEN_QUOTE) and text.endswith(CLOSE_QUOTE)
+
+
+def _quote_record_for(card_text_stripped, quotes):
+    """Find a quotes[] record whose text overlaps this card (either contains the other)."""
+    needle = card_text_stripped.strip().strip(OPEN_QUOTE).strip(CLOSE_QUOTE).strip()
+    for q in quotes:
+        if not isinstance(q, dict):
+            continue
+        qt = (q.get("text") or "").strip().strip(OPEN_QUOTE).strip(CLOSE_QUOTE).strip()
+        if qt and needle and (qt in needle or needle in qt):
+            return q
+    return None
+
+
 def check_quote_verification(post):
-    """The aesthetic track's shrunk oracle: a quote that names a real work/attribution is the
-    only fact surface left, so it must be verified. A free paraphrase with no attribution is
-    fine (nothing to verify)."""
+    """The aesthetic track's shrunk oracle. Two layers, both closing the "marked-verified !=
+    actually-verified" gap:
+      (a) every quotes[] record that names a work/attribution must be verified WITH provenance;
+      (b) every quote-CARD (quote:true, or a whole-card 「…」) must map to such a record, so an
+          agent cannot ship a bare `{"text":"「…」","quote":true}` with no verification trail.
+    A free paraphrase with no attribution and no quote flag is fine — nothing to verify."""
     out = []
-    for i, q in enumerate(post.get("quotes", []), 1):
+    quotes = post.get("quotes", []) or []
+    require = post.get("quote_verification_required", True)
+
+    for i, q in enumerate(quotes, 1):
         if not isinstance(q, dict):
             continue
         attributed = q.get("work") or q.get("attribution") or q.get("author") or q.get("attributed")
-        if attributed and not q.get("verified"):
-            label = q.get("work") or q.get("attribution") or q.get("author") or "attributed quote"
+        if not attributed:
+            continue
+        if not q.get("verified"):
             out.append(Finding("FAIL", "quote-verification",
-                               f"quote {i} attributes to {label!r} but is not marked "
+                               f"quote {i} attributes to {_quote_label(q)!r} but is not marked "
                                f"verified:true — verify the line + its source, or drop the attribution"))
+        elif not _has_provenance(q):
+            out.append(Finding("FAIL", "quote-verification",
+                               f"quote {i} ({_quote_label(q)!r}) is marked verified:true but has no "
+                               f"provenance — add verified_source (URL) or verified_by (who@date). "
+                               f"A bare boolean is self-certifying (the green-dashboard trap)"))
+
+    for pos, card in enumerate(post.get("cards", []), 1):
+        is_quote_card = (isinstance(card, dict) and card.get("quote")) or _looks_like_quote_card(card)
+        if not is_quote_card:
+            continue
+        rec = _quote_record_for(card_text(card), quotes)
+        if rec is None:
+            out.append(Finding("FAIL", "quote-verification",
+                               f"card {pos} is a quote card but has no matching record in `quotes` — "
+                               f"register the line (with a source) so it can be verified"))
+            continue
+        if require and not (rec.get("verified") and _has_provenance(rec)):
+            out.append(Finding("FAIL", "quote-verification",
+                               f"card {pos}'s quote ({_quote_label(rec)!r}) must be verified with "
+                               f"provenance (quote_verification_required is on for this track)"))
+    return out
+
+
+def check_card_rhythm(cards):
+    """Aesthetic cards die on repetition. Two machine-checkable tells:
+      - adjacent cards opening on the same character (three cards starting 「光…」reads flat);
+      - one CJK character recurring across most cards (over-clustering one word).
+    Both WARN — this is taste-adjacent, so it surfaces for a human rather than hard-blocking."""
+    out = []
+    firsts = []
+    for card in cards:
+        t = card_text(card).strip().lstrip(OPEN_QUOTE)
+        firsts.append(t[0] if t else "")
+    for i in range(1, len(firsts)):
+        if firsts[i] and firsts[i] == firsts[i - 1]:
+            out.append(Finding("WARN", "card-rhythm",
+                               f"cards {i} and {i + 1} both open on 「{firsts[i]}」— vary the opening"))
+    counts = {}
+    for card in cards:
+        for ch in set(CJK_RE.findall(card_text(card))):  # per-card presence, not raw frequency
+            counts[ch] = counts.get(ch, 0) + 1
+    n = len(cards)
+    if n >= 4:
+        threshold = max(4, (n * 3 + 3) // 4)  # ceil(0.75 * n), min 4
+        for ch, c in sorted(counts.items(), key=lambda kv: -kv[1]):
+            if c >= threshold:
+                out.append(Finding("WARN", "card-rhythm",
+                                   f"「{ch}」appears on {c} of {n} cards — clustering one word flattens 氛围"))
     return out
 
 
@@ -228,8 +323,8 @@ def main(argv=None):
     ap.add_argument("--banned-phrases", default=str(DEFAULT_BANNED),
                     help=f"JSON blacklist of 翻译腔/AI-味 phrases (default {DEFAULT_BANNED})")
     ap.add_argument("--skip-banned", action="store_true", help="skip the banned-phrase check")
-    ap.add_argument("--max-card-chars", type=int, default=40,
-                    help="warn when a single card is longer than this (default 40)")
+    ap.add_argument("--max-card-chars", type=int, default=32,
+                    help="warn when a single card is longer than this (default 32; this 栏目 is 一句一卡)")
     ap.add_argument("--strict", action="store_true", help="promote WARN findings to failures")
     args = ap.parse_args(argv)
 
@@ -252,6 +347,7 @@ def main(argv=None):
     findings += check_card_numbering(cards)
     findings += check_overline(post)
     findings += check_quote_verification(post)
+    findings += check_card_rhythm(cards)
     findings += check_hashtags(post)
 
     fails = [f for f in findings if f.level == "FAIL"]

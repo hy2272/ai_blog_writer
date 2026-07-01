@@ -2,13 +2,10 @@
   "track": "aesthetic_lifestyle",
   "overline": "生活美学",
   "cards": [
-    {"index": 1, "total": 6, "text": "今天不赶时间。"},
-    {"index": 2, "total": 6, "text": "煮一杯咖啡。"},
-    {"index": 3, "total": 6, "text": "「记得要幸福哦。」", "quote": true}
+    {"index": 1, "total": 6, "text": "今天不赶时间，醒了先躺一会儿。"},
+    {"index": 2, "total": 6, "text": "煮一杯咖啡，看热气散开。"},
+    {"index": 3, "total": 6, "text": "傍晚回到家，泡一壶茶。"}
   ],
   "caption": "慢下来的一天。\n#生活美学",
-  "hashtags": ["#生活美学"],
-  "quotes": [
-    {"text": "记得要幸福哦。", "work": "《情书》", "verified": true}
-  ]
+  "hashtags": ["#生活美学"]
 }
