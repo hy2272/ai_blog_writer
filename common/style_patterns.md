@@ -90,6 +90,13 @@ Kill these tells:
   staleness risk — the audit WARNs on it; justify or replace it.
 - Date-anchor time-sensitive claims ("截至 2026 年 6 月…") so they age gracefully.
 
+> **Machine-enforced subset:** the always-wrong tics above (empty transitions, 赋能/无缝/
+> 打造/拥抱, 岁月静好, 更稳的做法, 最香的, 开发者玩具, …) are also encoded as DATA in
+> `common/banned_phrases.json` and enforced by `citation_audit.py --banned-phrases` and
+> `aesthetic_audit.py`. A rule that is data gets caught by the oracle instead of relying on
+> the humanizer's eye. When you add a new always-wrong phrase here, add it there too (with a
+> `reason` + `suggest`); ambiguous phrases stay `WARN` so they surface without hard-blocking.
+
 ## 6. Adding to this file
 New durable style rule → add a numbered line here. A conditional / situational
 technique → a `behavior_notes/` note instead (see that folder's README). This is the

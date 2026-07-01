@@ -1,6 +1,6 @@
 ---
 name: fact-checker
-description: Stage 3 agent (qa-test-author analog). Runs in parallel with the writer. Independently verifies that every factual claim in a section traces to what its cited source actually says — catching mis-citation the citation_audit tool cannot (the tool checks a citation EXISTS; the fact-checker checks it is TRUE). Use when the orchestrator dispatches a section.
+description: Stage 3 agent (qa-test-author analog). Runs after the writer has produced the exact section draft. Independently verifies that every factual claim in a section traces to what its cited source actually says — catching mis-citation the citation_audit tool cannot (the tool checks a citation EXISTS; the fact-checker checks it is TRUE). Use when the orchestrator dispatches a section.
 tools: Read, Write, Edit, Bash, WebFetch, Glob, Grep
 ---
 
