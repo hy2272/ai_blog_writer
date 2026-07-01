@@ -1,0 +1,19 @@
+{
+  "track": "aesthetic_lifestyle",
+  "theme": "把今天，过成一部电影",
+  "overline": "生活美学",
+  "visual_style": "film_morning",
+  "cards": [
+    {"index": 1, "total": 6, "text": "今天不赶时间。醒了就躺一会儿，看光爬上墙。"},
+    {"index": 2, "total": 6, "text": "煮一杯咖啡，看热气慢慢散开。窗外的云也不急着走。"},
+    {"index": 3, "total": 6, "text": "把通勤走成散步，耳机里放一首旧歌。"},
+    {"index": 4, "total": 6, "text": "午后的光很轻，落在桌上像一帧电影。"},
+    {"index": 5, "total": 6, "text": "傍晚回到家，给自己留十分钟，什么都不做。"},
+    {"index": 6, "total": 6, "text": "「记得要幸福哦。」", "quote": true}
+  ],
+  "caption": "把今天，过成一部电影。\n慢下来的一天，也值得被收藏。\n#生活美学 #治愈系日常",
+  "hashtags": ["#生活美学", "#治愈系日常"],
+  "quotes": [
+    {"text": "记得要幸福哦。", "work": "《情书》", "verified": true}
+  ]
+}

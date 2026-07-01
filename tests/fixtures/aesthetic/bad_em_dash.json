@@ -1,0 +1,13 @@
+{
+  "track": "aesthetic_lifestyle",
+  "overline": "生活美学",
+  "cards": [
+    {"index": 1, "total": 2, "text": "今天不赶时间——醒了就躺一会儿。"},
+    {"index": 2, "total": 2, "text": "「记得要幸福哦。」", "quote": true}
+  ],
+  "caption": "慢下来的一天。\n#生活美学",
+  "hashtags": ["#生活美学"],
+  "quotes": [
+    {"text": "记得要幸福哦。", "work": "《情书》", "verified": true}
+  ]
+}
