@@ -11,6 +11,36 @@ carry the detail.
 
 ---
 
+## 2026-07-01 — first-class content tracks + aesthetic-track machine oracle
+- **What:** turns the two reviewers' converging asks into one PR. (1) `tools/aesthetic_audit.py`
+  — the aesthetic track's own oracle (2nd port of the citation_audit *idea*): 破折号, card
+  length, banned phrases, 「」 closure, 0X-0N card numbering, overline (no AI), and the residual
+  fact surface = quote verification. (2) `common/banned_phrases.json` — the style §3 翻译腔/AI-味
+  tics as DATA (phrase/level/reason/suggest); `citation_audit.py --banned-phrases` and
+  `aesthetic_audit.py` both consume it; §3 gains a pointer. (3) `grounding_gate.py` now FAILs
+  closed on an empty verdict (`--allow-empty` override), matching factcheck_gate. (4)
+  `audit_article.py` passes `--source-authority` + `--banned-phrases` through; orchestrator S7
+  enables source-authority by default on the factual track. (5) `gen_image.py --dry-run`
+  (no API call, no cost) + `--manifest` image-provenance schema (prompt/model/aspect/refs/
+  palette/purpose/reusable/date). (6) first-class `track` field in STATE.md + an S0 track
+  router in the orchestrator (factual_ai_news / aesthetic_lifestyle / mixed_explainer) +
+  `/write-aesthetic-post` command (3 variants → curate). (7) fact-checker.md description fixed
+  ("runs after the writer has produced the draft", not "in parallel"). Fixtures + CI for all.
+- **Why:** review #1 — the machine layer (the system's strongest part) was OFF on the content
+  actually shipped most (aesthetic cards), and the banned list was prose the humanizer had to
+  read. review #2 — the aesthetic track lived only in a behavior note, not the orchestrator
+  state machine; grounding could pass on empty; S7 didn't use source-authority; the
+  fact-checker doc was stale; the image path had no dry-run/manifest.
+- **Risk:** banned-phrase matching is naive substring — only always-wrong phrases are FAIL,
+  ambiguous ones (深入/直白/更稳/影子) are WARN and single-char calques (炸/硬/吃) are omitted to
+  avoid false positives (enforce those by eye). aesthetic_audit consumes an `aesthetic_post.json`
+  the aesthetic flow must emit; the gen_image dry-run/manifest is CI-tested but the real paid
+  gen path still isn't (needs a key + billing).
+- **Verified:** CI — aesthetic_audit good→PASS, 4 bad fixtures→FAIL; banned-phrase draft→FAIL,
+  demo stays clean; grounding empty→FAIL, `--allow-empty`→PASS; audit_article passthrough of
+  `--source-authority`/`--banned-phrases`; gen_image `--dry-run` writes no image + a manifest.
+  All prior gates + xhs adapter tests still green locally.
+
 ## 2026-06-30 — #20 aesthetic track + AI-image card pipeline
 - **What:** a second, non-factual content track and the visuals for it. `tools/gen_image.py`
   (stdlib Nano Banana / Gemini image gen). `adapter.py --style photo-triptych`: 氛围 triptych

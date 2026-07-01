@@ -263,3 +263,58 @@ jobs:
             echo "bad final fixture unexpectedly passed"
             exit 1
           fi
+
+      - name: Grounding fails closed on an empty verdict; --allow-empty passes
+        run: |
+          if python3 tools/grounding_gate.py tests/fixtures/grounding/bad_empty.json --allowed-outline-ids 1; then
+            echo "empty grounding verdict unexpectedly passed"
+            exit 1
+          fi
+          python3 tools/grounding_gate.py tests/fixtures/grounding/bad_empty.json --allow-empty
+
+      - name: Banned-phrase check flags a 翻译腔 draft; demo stays clean
+        run: |
+          if python3 tools/citation_audit.py tests/fixtures/citation/bad_banned_phrase.md \
+            --source-pack articles/article_demo/source_pack.json \
+            --banned-phrases common/banned_phrases.json --as-of 2026-06-09; then
+            echo "banned-phrase draft unexpectedly passed"
+            exit 1
+          fi
+          python3 tools/citation_audit.py articles/article_demo/sections/sec1_draft.md \
+            --source-pack articles/article_demo/source_pack.json \
+            --contract articles/article_demo/contracts/sec1_contract.json \
+            --banned-phrases common/banned_phrases.json --as-of 2026-06-09
+
+      - name: audit_article passes --source-authority + --banned-phrases through
+        run: |
+          python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09 \
+            --source-authority common/source_authority.json \
+            --banned-phrases common/banned_phrases.json
+
+      - name: Aesthetic audit — good post passes
+        run: python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/good_post.json
+
+      - name: Aesthetic audit — bad posts fail (dash / numbering / unverified quote / AI overline)
+        run: |
+          for f in bad_em_dash bad_numbering bad_unverified_quote bad_ai_overline; do
+            if python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/$f.json; then
+              echo "aesthetic $f.json unexpectedly passed"
+              exit 1
+            fi
+          done
+
+      - name: gen_image --dry-run makes no API call and writes a manifest (offline, no cost)
+        run: |
+          rm -f /tmp/img_manifest.json
+          python3 tools/gen_image.py --prompt "quiet morning window, warm light, film grain, no text" \
+            --out /tmp/card1.png --aspect 4:5 --dry-run \
+            --manifest /tmp/img_manifest.json --palette "warm morning" --purpose "cover panel" --reusable
+          test ! -f /tmp/card1.png   # dry-run must NOT produce an image
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path("/tmp/img_manifest.json").read_text(encoding="utf-8"))
+          rec = m["images"][0]
+          assert rec["dry_run"] is True and rec["reusable"] is True, rec
+          assert rec["prompt"].endswith("no text"), rec["prompt"]
+          PY

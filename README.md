@@ -40,9 +40,26 @@ machine oracles:
 
 | Tool | Checks | Exit |
 |---|---|---|
-| `tools/citation_audit.py` | every claim has an `[Sn]` marker (no 裸论断), sources are dated + fresh, word-count / required-keyword / must-cite coverage. CJK-aware. | 0 = PASS / 1 = FAIL |
-| `tools/grounding_gate.py` | faithfulness — outline points trace to sources (`source_ids`), draft claims trace to outline (`outline_ids`) with optional source provenance. | 0 = PASS / 1 = FAIL |
+| `tools/citation_audit.py` | every claim has an `[Sn]` marker (no 裸论断), sources are dated + fresh, word-count / required-keyword / must-cite coverage, optional source-authority + `--banned-phrases`. CJK-aware. | 0 = PASS / 1 = FAIL |
+| `tools/grounding_gate.py` | faithfulness — outline points trace to sources (`source_ids`), draft claims trace to outline (`outline_ids`). Fails closed on an empty verdict (`--allow-empty` to override). | 0 = PASS / 1 = FAIL |
+| `tools/factcheck_gate.py` | the fact-checker's per-claim verdict (cited ≠ true); any non-`SUPPORTED` claim fails. Fails closed on an empty verdict. | 0 = PASS / 1 = FAIL |
+| `tools/aesthetic_audit.py` | the **aesthetic track's** oracle — 破折号 / card length / banned phrases / 「」 closure / 0X-0N card numbering / overline / **quote verification**. No `[Sn]` (poetry has no claims). | 0 = PASS / 1 = FAIL |
 | `tools/audit_article.py` | wrapper that audits every section contract and re-checks final structure, section headings/markers, preserved citations, and unioned coverage requirements. | 0 = PASS / 1 = FAIL |
+
+## Two content tracks
+
+The system is dual-track. The `track` field in `STATE.md` is first-class (set at S0) and
+selects which gates run — the orchestrator routes on it, agents never infer it mid-run:
+
+| Track | Runs | Skips | Oracle |
+|---|---|---|---|
+| **`factual_ai_news`** | research · contract · grounding · fact-check · citation audit · source authority | — | `citation_audit` + `grounding_gate` + `factcheck_gate` |
+| **`aesthetic_lifestyle`** | editorial-lite · 3 writer variants + curate · humanizer · taste review | citation / grounding / fact-check (a category error on poetry) | `aesthetic_audit` (the fact oracle shrinks to just verifying a quoted film line) |
+
+The aesthetic track is the second port of the `citation_audit` *idea*: keep the LLM judge
+for what needs taste, and let a deterministic tool catch the hard rules (破折号, banned
+翻译腔 phrases from `common/banned_phrases.json`, card numbering, quote verification) that
+do not. Enter it with `/write-aesthetic-post <theme>`.
 
 ## Pipeline
 
@@ -70,7 +87,8 @@ Open this folder as a Claude Code project, then:
 
 ```
 /new-article <slug>            # scaffold a per-article workspace
-/write-article <topic>         # run the staged pipeline (stops at the angle + sign-off gates)
+/write-article <topic>         # factual AI-news pipeline (stops at the angle + sign-off gates)
+/write-aesthetic-post <theme>  # aesthetic track: 3 variant drafts → curate → aesthetic_audit
 /status                        # print the pipeline state table
 /write-section <k>             # re-run one section's write → fact-check → audit loop
 /handoff                       # write a system handoff for the next architect
@@ -87,6 +105,8 @@ python3 tools/grounding_gate.py articles/article_demo/sections/grounding_2to3.js
 python3 tools/factcheck_gate.py tests/fixtures/factcheck/good.json                    # PASS
 python3 tools/factcheck_gate.py tests/fixtures/factcheck/bad_misattributed.json       # FAIL
 python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09               # PASS
+python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/good_post.json              # PASS
+python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/bad_em_dash.json            # FAIL
 ```
 
 Add `--source-authority` to score cited sources against `common/source_authority.json` —
@@ -149,17 +169,19 @@ RUNBOOK.md             step-by-step
   runtime.md           how to run things, where files go
   agents/              9 sub-agent specs (research, editorial, writer, fact-checker,
                        grounding-checker, citation-auditor, humanizer, editorial-reviewer, output)
-  commands/            /write-article /new-article /status /write-section /handoff
+  commands/            /write-article /write-aesthetic-post /new-article /status /write-section /handoff
 common/
   style_patterns.md    voice + 去 AI 味 + the §7 hard-rule checklist (single source of truth)
+  banned_phrases.json  machine-checkable 翻译腔/AI-味 blacklist (data form of style §3)
   source_authority.json domain tiers for --source-authority (tier-1/2 allowlist + blacklist)
-  behavior_notes/      conditional knowledge the writing agents glob (incl. 小红书 mode)
+  behavior_notes/      conditional knowledge the writing agents glob (incl. 小红书 + aesthetic track)
 platforms/
   xiaohongshu/         default long-image post adapter
 tools/
-  citation_audit.py    oracle 1 — marker/freshness/coverage/source-authority
-  grounding_gate.py    oracle 2 — faithfulness (does downstream trace to upstream)
+  citation_audit.py    oracle 1 — marker/freshness/coverage/source-authority/banned-phrases
+  grounding_gate.py    oracle 2 — faithfulness (does downstream trace to upstream; fails closed)
   factcheck_gate.py    oracle 3 — fact-check verdict gate (cited ≠ true; fails closed)
+  aesthetic_audit.py   oracle 4 — aesthetic-track gate (dash/length/banned/quote/numbering)
   status.py            aggregate per-stage section results into a section × stage matrix
   outline_ids.py       validate outline.json + emit its ids (generates --allowed-outline-ids)
   new_article.py       scaffold + validate a per-article workspace from _TEMPLATE
@@ -169,6 +191,7 @@ tools/
   news_discover.py     S0 topic discovery — fresh dated AI headlines via Apify
   xhs_research.py      one-off 小红书 爆款 calibration for the paradigm note (Apify)
   apify_client.py      thin stdlib Apify REST client (run an actor, get dataset items)
+  gen_image.py         AI background-image gen (Gemini/Nano Banana); --dry-run + manifest
   gemini_polish.py     optional final fluency pass
 articles/
   _TEMPLATE/           per-article scaffold
