@@ -297,7 +297,7 @@ jobs:
       - name: Aesthetic audit — bad posts fail (dash / numbering / quote / overline / provenance)
         run: |
           for f in bad_em_dash bad_numbering bad_unverified_quote bad_ai_overline \
-                   bad_quote_no_provenance bad_quote_card_no_record; do
+                   bad_quote_no_provenance bad_quote_card_no_record bad_embedded_quote_no_record; do
             if python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/$f.json; then
               echo "aesthetic $f.json unexpectedly passed"
               exit 1
@@ -333,6 +333,19 @@ jobs:
               assert mc["text"] == pc["text"], (mc["text"], pc["text"])
           print("OK: manifest card text matches aesthetic_post.json")
           PY
+
+      - name: Aesthetic --check-caption checks against card text, not the caption itself
+        run: |
+          rm -rf /tmp/ae_cap_good /tmp/ae_cap_bad
+          python3 platforms/xiaohongshu/adapter.py \
+            --aesthetic-json tests/fixtures/aesthetic/good_post.json \
+            --out-dir /tmp/ae_cap_good --no-render --check-caption
+          if python3 platforms/xiaohongshu/adapter.py \
+            --aesthetic-json tests/fixtures/aesthetic/caption_invents_number.json \
+            --out-dir /tmp/ae_cap_bad --no-render --check-caption; then
+            echo "invented-number caption unexpectedly passed --check-caption on the aesthetic path"
+            exit 1
+          fi
 
       - name: gen_image --dry-run makes no API call and writes a manifest (offline, no cost)
         run: |

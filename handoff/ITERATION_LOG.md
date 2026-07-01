@@ -35,10 +35,18 @@ carry the detail.
   thresholds are conservative (ceil(0.75·N), min 4) to avoid false positives; a very short post
   (<4 cards) skips the clustering check. adapter aesthetic path is CI-tested `--no-render` only
   (PNG still needs Chrome).
-- **Verified:** CI — 6 aesthetic bad fixtures FAIL (incl. no-provenance + unregistered quote
-  card), good PASS with 0 WARN; references banned phrase PASSes body-scope, FAILs `--scope all`;
-  adapter `--aesthetic-json` manifest card text matches the JSON 1:1; all #21 + prior gates and
-  the markdown/triptych adapter paths still green.
+- **Verified:** CI — 7 aesthetic bad fixtures FAIL (incl. no-provenance, unregistered quote
+  card, woven-in attributed quote), good PASS with 0 WARN; references banned phrase PASSes
+  body-scope, FAILs `--scope all`; adapter `--aesthetic-json` manifest card text matches the
+  JSON 1:1; caption number-check runs against card text; all #21 + prior gates and the
+  markdown/triptych adapter paths still green.
+- **Pre-merge review fixes (round 3 on #22):** (a) P0 — the aesthetic-json path fed the
+  caption into its own `body_text`, so `--check-caption` self-approved any invented number;
+  `body_text` now excludes the caption (checks against card text only). (b) orchestrator S0
+  router still said the aesthetic track uses `writer`; corrected to `aesthetic-writer`.
+  (c) `aesthetic_audit` docstring example + a woven-in attributed quote (a card naming 《…》
+  with a 「…」 quote but no `quote:true`) now also require a verified record. Fixtures:
+  `caption_invents_number`, `bad_embedded_quote_no_record`.
 - **What:** turns the two reviewers' converging asks into one PR. (1) `tools/aesthetic_audit.py`
   — the aesthetic track's own oracle (2nd port of the citation_audit *idea*): 破折号, card
   length, banned phrases, 「」 closure, 0X-0N card numbering, overline (no AI), and the residual

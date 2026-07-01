@@ -24,8 +24,9 @@ STATE.md before anything else; it is a first-class field, never inferred mid-run
 - **`aesthetic_lifestyle`** (`fact_gates: false`) — 生活美学 / 治愈系 / 诗意 card post. The
   fact machine is a category error here (poetry has no `[Sn]` claims), so **SKIP S1 research,
   the grounding gates, S3 fact-check, and S4 citation audit**. Keep editorial (lite), the
-  writer (spawn 3 variants + curate — see `/write-aesthetic-post`), the humanizer, and taste
-  review. The oracle SHRINKS to `tools/aesthetic_audit.py` (破折号 / card length / banned
+  **`aesthetic-writer`** (spawn 3 variants + curate — NOT the factual `writer`; see
+  `/write-aesthetic-post`), the humanizer, and taste review. The oracle SHRINKS to
+  `tools/aesthetic_audit.py` (破折号 / card length / banned
   phrases / 「」 closure / 0X-0N numbering / overline / **quote verification**). Enter via
   `/write-aesthetic-post`; the runbook is `common/behavior_notes/aesthetic-track.md`.
 - **`mixed_explainer`** — RESERVED; not implemented. It needs a paragraph-level claim
