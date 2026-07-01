@@ -124,6 +124,14 @@ def main(argv=None):
                     help="the assembled draft to audit against the union of section "
                          "coverage (default: final.md; S5 passes humanized.md)")
     ap.add_argument("--check-links", action="store_true")
+    ap.add_argument("--source-authority",
+                    help="optional JSON of domain tiers (common/source_authority.json), passed "
+                         "through to citation_audit for every section + the assembled draft: a "
+                         "blacklisted source FAILs, no tier-1/2 anchor WARNs. S7 enables it by "
+                         "default on the factual track so the final gate ranks source quality.")
+    ap.add_argument("--banned-phrases",
+                    help="optional JSON blacklist of 翻译腔/AI-味 phrases "
+                         "(common/banned_phrases.json), passed through to citation_audit")
     ap.add_argument("--strict", action="store_true")
     args = ap.parse_args(argv)
 
@@ -168,6 +176,10 @@ def main(argv=None):
             cmd += ["--as-of", args.as_of]
         if args.check_links:
             cmd.append("--check-links")
+        if args.source_authority:
+            cmd += ["--source-authority", args.source_authority]
+        if args.banned_phrases:
+            cmd += ["--banned-phrases", args.banned_phrases]
         if args.strict:
             cmd.append("--strict")
         failures += 1 if run(cmd) else 0
@@ -192,6 +204,10 @@ def main(argv=None):
             cmd += ["--as-of", args.as_of]
         if args.check_links:
             cmd.append("--check-links")
+        if args.source_authority:
+            cmd += ["--source-authority", args.source_authority]
+        if args.banned_phrases:
+            cmd += ["--banned-phrases", args.banned_phrases]
         if args.strict:
             cmd.append("--strict")
         failures += 1 if run(cmd) else 0

@@ -31,6 +31,11 @@ Gate logic — an item FAILS if:
   - 2->3: grounded=true but outline_ids is empty
   - a cited id is not in the corresponding allow-list
 Pass only if every item is clean.
+
+Fails CLOSED on an empty/absent item list, mirroring factcheck_gate.py: a grounding check
+that judged NOTHING is a judge that did not run, not a success — the same "never ship on a
+green audit that checked nothing" logic (CLAUDE.md). Override with --allow-empty only for a
+hop that genuinely has no downstream item to trace (rare; log the reason).
 """
 import argparse
 import json
@@ -49,6 +54,9 @@ def main(argv=None):
                                           "means source ids; for 2->3 this means outline ids.")
     ap.add_argument("--allowed-source-ids", help="comma-separated source ids the verdict may cite")
     ap.add_argument("--allowed-outline-ids", help="comma-separated outline ids the verdict may cite")
+    ap.add_argument("--allow-empty", action="store_true",
+                    help="treat an empty item list as PASS (default: FAIL — a grounding check "
+                         "that checked nothing must not read as green)")
     args = ap.parse_args(argv)
 
     v = load(args.verdict)
@@ -108,12 +116,16 @@ def main(argv=None):
             if bad:
                 failures.append((cid, f"cites unknown outline id(s): {bad}", it.get("claim", "")))
 
+    empty_fail = not items and not args.allow_empty
+
     print(f"grounding_gate: stage {stage} — {len(items)} items, {len(failures)} ungrounded")
     for cid, why, claim in failures:
         snippet = (claim or "")[:60]
         print(f"  [FAIL] item {cid}: {why}  —  \"{snippet}…\"")
+    if empty_fail:
+        print("  [FAIL] no items in verdict — a grounding check that traced nothing is not a pass")
 
-    if failures:
+    if failures or empty_fail:
         print("\nRESULT: FAIL")
         return 1
     print("\nRESULT: PASS")

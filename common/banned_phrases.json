@@ -1,0 +1,27 @@
+{
+  "_comment": "Machine-checkable 翻译腔 / AI-味 phrase blacklist. The narrative rationale lives in common/style_patterns.md §3; this file is the DATA form so a tool can enforce it instead of a humanizer/LLM reading markdown and missing hits. Consumed by tools/citation_audit.py and tools/aesthetic_audit.py via --banned-phrases. Each entry: phrase (exact substring, case-insensitive for Latin), level (FAIL|WARN), reason (why it reads AI/翻译腔), suggest (what to write instead). Matching is naive substring — so only phrases that are almost always wrong are FAIL; ambiguous ones that have legitimate uses (深入, 直白, 更稳, 影子) are WARN so they surface for a human without hard-blocking. Single-char calques the reviewer flagged (炸 / 硬 / 吃-as-use) are intentionally omitted: substring-matching them would fire on 爆炸 / 硬件 / 吃饭 — enforce those by eye. This list is a self-improvement-loop asset: append a phrase (with reason + suggest) every time a shipped piece reveals a new tell.",
+  "phrases": [
+    {"phrase": "值得注意的是", "level": "FAIL", "reason": "空转场，生成腔标志", "suggest": "直接说那件事，删掉这个开场"},
+    {"phrase": "总而言之", "level": "FAIL", "reason": "AI 收尾套话", "suggest": "给读者一个视角，别做总结陈词"},
+    {"phrase": "综上所述", "level": "FAIL", "reason": "AI 收尾套话", "suggest": "同上，删掉或换成一句有信息量的收束"},
+    {"phrase": "不仅如此", "level": "FAIL", "reason": "空转场", "suggest": "换成具体的递进内容或另起一句"},
+    {"phrase": "毫无疑问", "level": "FAIL", "reason": "空洞的强调开场", "suggest": "拿出证据，让读者自己无疑"},
+    {"phrase": "在当今", "level": "FAIL", "reason": "「在当今快速发展的…」式开场，一眼 AI", "suggest": "用一个本周才成立的具体事实开场"},
+    {"phrase": "赋能", "level": "FAIL", "reason": "企业黑话 / AI 味", "suggest": "说清到底带来了什么能力"},
+    {"phrase": "打造", "level": "FAIL", "reason": "营销腔", "suggest": "做 / 建 / 写 / 搭"},
+    {"phrase": "无缝", "level": "FAIL", "reason": "seamless 直译", "suggest": "顺畅 / 不用手动切换 / 直接接上"},
+    {"phrase": "拥抱", "level": "FAIL", "reason": "embrace 直译，口号腔", "suggest": "说清具体动作，别喊口号"},
+    {"phrase": "岁月静好", "level": "FAIL", "reason": "已带贬义/反讽，别用来形容温馨治愈画面", "suggest": "治愈系 / 松弛感 / 温柔的氛围"},
+    {"phrase": "更稳的做法", "level": "FAIL", "reason": "「safer way」直译", "suggest": "风险更低 / 不容易翻车 / 先保留人工确认"},
+    {"phrase": "最香的", "level": "FAIL", "reason": "AI 味且不常用", "suggest": "这次最实用的 / 真正好用的是 / 最值的一点"},
+    {"phrase": "开发者玩具", "level": "FAIL", "reason": "「developer toy」直译", "suggest": "离普通人很远的东西 / 只有开发者才碰得到的东西"},
+    {"phrase": "诚实地说", "level": "WARN", "reason": "「honestly」直译口头禅", "suggest": "删掉，直接说结论"},
+    {"phrase": "诚实讲", "level": "WARN", "reason": "「honestly」直译口头禅", "suggest": "删掉，直接说结论"},
+    {"phrase": "深入", "level": "WARN", "reason": "常见 AI 副词，多为凑字", "suggest": "说清到底深到哪一层，或删"},
+    {"phrase": "强大的", "level": "WARN", "reason": "powerful 直译，空形容词", "suggest": "用具体能力替代形容词"},
+    {"phrase": "丰富的", "level": "WARN", "reason": "rich 直译，空形容词", "suggest": "举出到底丰富在哪"},
+    {"phrase": "更稳", "level": "WARN", "reason": "「safer」直译（弱于『更稳的做法』）", "suggest": "风险更低 / 不容易翻车"},
+    {"phrase": "直白", "level": "WARN", "reason": "误用于「操作简单」；直白只形容语言/表达", "suggest": "很简单 / 超级简单"},
+    {"phrase": "影子", "level": "WARN", "reason": "「带着你的影子」形容个性化产出偏虚", "suggest": "带着你的审美"}
+  ]
+}

@@ -22,6 +22,16 @@ Usage:
   python3 tools/gen_image.py --prompt "..." --out path.png
   python3 tools/gen_image.py --prompt "..." --out p.png --model gemini-2.5-flash-image --aspect 16:9
   python3 tools/gen_image.py --prompt "..." --out p.png --ref a.png --ref b.png   # image-to-image
+  python3 tools/gen_image.py --prompt "..." --out p.png --dry-run                 # no API call, no cost
+  python3 tools/gen_image.py --prompt "..." --out p.png --manifest assets/image_manifest.json
+
+--dry-run prints the exact request (model / aspect / refs / target / request body) WITHOUT
+calling the paid API — the CI-safe, no-cost path to verify a prompt before spending. Gemini
+image gen is paid-tier only, so tests must never hit the real endpoint.
+
+--manifest appends a provenance record (prompt, model, aspect, refs, out, date, palette,
+purpose, reusable) to a JSON manifest so a card's imagery is reproducible and re-usable
+across posts (a style-preset library). The manifest is written on both real and dry runs.
 """
 from __future__ import annotations
 
@@ -33,6 +43,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 
@@ -118,6 +129,31 @@ def _extract_image(resp: dict) -> tuple[bytes | None, str]:
     return None, " ".join(text_bits).strip()
 
 
+def build_attempts(prompt: str, aspect: str | None, refs: list[Path] | None,
+                   inline_refs: bool = True) -> list[dict]:
+    """Build the ordered request-body variants. inline_refs=False keeps ref bytes out of the
+    body (used by --dry-run so the printed request is readable, not a base64 wall)."""
+    parts: list[dict] = []
+    for r in refs or []:
+        if inline_refs:
+            parts.append(_ref_part(Path(r)))
+        else:
+            parts.append({"inlineData": {"mimeType": mimetypes.guess_type(str(r))[0] or "image/png",
+                                         "data": f"<{Path(r).name} bytes omitted in dry-run>"}})
+    parts.append({"text": prompt})
+    base_body = {"contents": [{"role": "user", "parts": parts}]}
+
+    # Attempt with imageConfig.aspectRatio (Gemini 3 image). Older models reject it, so
+    # retry once without on a 400. responseModalities is added on the retry too, since some
+    # tiers need it spelled out to emit an image instead of text.
+    attempts: list[dict] = []
+    if aspect:
+        attempts.append({**base_body, "generationConfig": {"imageConfig": {"aspectRatio": aspect}}})
+    attempts.append({**base_body, "generationConfig": {"responseModalities": ["IMAGE"]}})
+    attempts.append(base_body)
+    return attempts
+
+
 def generate(
     prompt: str,
     out_path: Path,
@@ -127,22 +163,7 @@ def generate(
     timeout: int = 180,
 ) -> Path:
     key = load_api_key()
-    parts: list[dict] = []
-    for r in refs or []:
-        parts.append(_ref_part(Path(r)))
-    parts.append({"text": prompt})
-
-    base_body = {"contents": [{"role": "user", "parts": parts}]}
-
-    # Attempt with imageConfig.aspectRatio (Gemini 3 image). Older models reject it, so
-    # retry once without on a 400. responseModalities is added on the retry too, since some
-    # tiers need it spelled out to emit an image instead of text.
-    attempts: list[dict] = []
-    if aspect:
-        cfg = {"imageConfig": {"aspectRatio": aspect}}
-        attempts.append({**base_body, "generationConfig": cfg})
-    attempts.append({**base_body, "generationConfig": {"responseModalities": ["IMAGE"]}})
-    attempts.append(base_body)
+    attempts = build_attempts(prompt, aspect, refs, inline_refs=True)
 
     last_text = ""
     for i, body in enumerate(attempts):
@@ -164,6 +185,44 @@ def generate(
     raise RuntimeError(f"No image returned by {model}.{hint}")
 
 
+def manifest_record(args, dry_run: bool, image_bytes: int | None) -> dict:
+    """Provenance for one generated image — enough to reproduce it and to reuse it as a
+    style preset across posts (film_morning / cafe_window / …)."""
+    return {
+        "out": str(args.out),
+        "prompt": args.prompt,
+        "model": args.model,
+        "aspect": args.aspect,
+        "refs": list(args.ref),
+        "palette": args.palette,
+        "purpose": args.purpose,
+        "reusable": bool(args.reusable),
+        "date": args.date or date.today().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "dry_run": dry_run,
+        "bytes": image_bytes,
+    }
+
+
+def append_manifest(manifest_path: Path, record: dict) -> None:
+    """Append a record to a JSON list manifest (create if absent). Keeps the whole
+    image-library history in one file per article/assets dir."""
+    entries = []
+    if manifest_path.exists():
+        try:
+            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if isinstance(existing, list):
+                entries = existing
+            elif isinstance(existing, dict) and isinstance(existing.get("images"), list):
+                entries = existing["images"]
+        except json.JSONDecodeError:
+            entries = []
+    entries.append(record)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps({"images": entries}, ensure_ascii=False, indent=2),
+                             encoding="utf-8")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Generate an image with Gemini (Nano Banana).")
     ap.add_argument("--prompt", required=True, help="image description")
@@ -173,11 +232,39 @@ def main(argv=None) -> int:
     ap.add_argument("--ref", action="append", default=[],
                     help="reference image for image-to-image (repeatable)")
     ap.add_argument("--timeout", type=int, default=180, help="seconds per API call")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the request (model/aspect/refs/target/body) WITHOUT calling the "
+                         "paid API — CI-safe, no cost")
+    ap.add_argument("--manifest",
+                    help="append an image_manifest.json provenance record (works in --dry-run too)")
+    ap.add_argument("--palette", help="palette tag for the manifest (e.g. 'warm morning')")
+    ap.add_argument("--purpose", help="what the image is for (e.g. 'cover triptych left panel')")
+    ap.add_argument("--date", help="logical date for the manifest (YYYY-MM-DD; default: today)")
+    ap.add_argument("--reusable", action="store_true",
+                    help="mark this image as a reusable style preset in the manifest")
     args = ap.parse_args(argv)
 
     if args.aspect and args.aspect not in VALID_ASPECTS:
         print(f"WARN: --aspect {args.aspect} not in {sorted(VALID_ASPECTS)}; sending anyway",
               file=sys.stderr)
+
+    if args.dry_run:
+        attempts = build_attempts(args.prompt, args.aspect, [Path(p) for p in args.ref],
+                                  inline_refs=False)
+        record = manifest_record(args, dry_run=True, image_bytes=None)
+        if args.manifest:
+            append_manifest(Path(args.manifest), record)
+        print(json.dumps({
+            "dry_run": True,
+            "model": args.model,
+            "aspect": args.aspect,
+            "refs": list(args.ref),
+            "out": str(args.out),
+            "request_body": attempts[0],
+            "manifest": args.manifest,
+        }, ensure_ascii=False, indent=2))
+        return 0
+
     try:
         out = generate(
             args.prompt, Path(args.out), model=args.model, aspect=args.aspect,
@@ -187,8 +274,10 @@ def main(argv=None) -> int:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
     size = out.stat().st_size
+    if args.manifest:
+        append_manifest(Path(args.manifest), manifest_record(args, dry_run=False, image_bytes=size))
     print(json.dumps({"out": str(out), "bytes": size, "model": args.model,
-                      "aspect": args.aspect}, ensure_ascii=False))
+                      "aspect": args.aspect, "manifest": args.manifest}, ensure_ascii=False))
     return 0
 
 

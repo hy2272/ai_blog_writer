@@ -8,6 +8,39 @@ read this file and re-enter at the first stage not marked done.
 - **angle:** <the approved take — filled at S1 gate>
 - **research as-of date:** <YYYY-MM-DD — pins the audit --as-of>
 
+## Track (set at S0 — decides which gates run)
+The content track is a first-class field, not an inference the agents make mid-run. The
+orchestrator reads it at S0 and routes gates accordingly (see `.claude/orchestrator.md`
+S0 track router). Copy the block that matches; delete the other.
+
+```json
+{
+  "track": "factual_ai_news",
+  "platform": "xiaohongshu",
+  "fact_gates": true,
+  "quote_verification_required": false,
+  "visual_style": "typographic-cards"
+}
+```
+
+```json
+{
+  "track": "aesthetic_lifestyle",
+  "platform": "xiaohongshu",
+  "fact_gates": false,
+  "quote_verification_required": true,
+  "visual_style": "photo-triptych"
+}
+```
+
+- `fact_gates`: whether S1 research / grounding / fact-check / citation-audit / source-
+  authority run. `true` for factual, `false` for aesthetic (those gates are a category
+  error on non-factual prose — see `behavior_notes/aesthetic-track.md`).
+- `quote_verification_required`: aesthetic posts skip fact gates but MUST still verify any
+  named film line / lyric / attribution (the residual fact surface) via `aesthetic_audit.py`.
+- `visual_style`: the card style preset (`typographic-cards`, `photo-triptych`, or a named
+  preset like `film_morning`).
+
 ## Section nodes (set at S0)
 | k | section purpose | status | loop count | audit |
 |---|---|---|---:|---|

@@ -20,6 +20,11 @@ Checks (each is independently reported; any FAIL → non-zero exit):
                          FAIL; a piece anchored on NO tier-1/2 source -> WARN; an unranked
                          domain -> WARN. Closes the "green-dashboard trap": cited + faithful
                          is not enough if the source itself is a content farm.
+  9. banned-phrase       (opt-in, --banned-phrases) a 翻译腔/AI-味 phrase from the shared
+                         common/banned_phrases.json appears in the draft. FAIL-level phrases
+                         (赋能, 无缝, 岁月静好, …) fail the gate; WARN-level surface for a human.
+                         Moves the style_patterns §3 blacklist from "humanizer reads markdown"
+                         to a machine check.
 
 Exit code: 0 = PASS (no FAIL-level findings), 1 = FAIL. WARN-level findings never
 fail the gate on their own; use --strict to promote WARN -> FAIL.
@@ -269,6 +274,28 @@ def check_source_authority(used_ids, by_id, authority):
     return out
 
 
+def check_banned_phrases(text, banned):
+    """A phrase from the shared blacklist appears in the draft. Naive substring match
+    (case-insensitive for Latin); level comes from the data file. Code fences/comments are
+    stripped first so a phrase quoted inside an example block does not fire."""
+    out = []
+    body = strip_code(text)
+    low = body.lower()
+    for entry in banned.get("phrases", []):
+        phrase = entry.get("phrase")
+        if not phrase:
+            continue
+        if phrase.lower() in low:
+            level = "FAIL" if str(entry.get("level", "FAIL")).upper() == "FAIL" else "WARN"
+            reason = entry.get("reason", "banned phrase")
+            suggest = entry.get("suggest")
+            msg = f"「{phrase}」— {reason}"
+            if suggest:
+                msg += f"；改用：{suggest}"
+            out.append(Finding(level, "banned-phrase", msg))
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Machine-checkable citation/fact audit for prose.")
     ap.add_argument("draft", help="path to the section/article markdown")
@@ -280,6 +307,9 @@ def main(argv=None):
     ap.add_argument("--source-authority",
                     help="optional JSON of domain tiers (tier1_primary/tier2_reputable/blacklist); "
                          "blacklisted source -> FAIL, no tier-1/2 source -> WARN")
+    ap.add_argument("--banned-phrases",
+                    help="optional JSON blacklist of 翻译腔/AI-味 phrases "
+                         "(common/banned_phrases.json); FAIL-level hit -> FAIL, WARN-level -> WARN")
     ap.add_argument("--strict", action="store_true", help="promote WARN findings to failures")
     args = ap.parse_args(argv)
 
@@ -312,6 +342,8 @@ def main(argv=None):
         findings += check_links(used_ids, by_id)
     if args.source_authority:
         findings += check_source_authority(used_ids, by_id, load_json(args.source_authority))
+    if args.banned_phrases:
+        findings += check_banned_phrases(draft, load_json(args.banned_phrases))
 
     fails = [f for f in findings if f.level == "FAIL"]
     warns = [f for f in findings if f.level == "WARN"]

@@ -21,7 +21,21 @@ a SECOND track alongside the default AI-news track. Pick it when the brief is "�
    (a) instructing lyrical/poetic writing and spawning MULTIPLE independent variant drafts
    (diversity = the controllable substitute for high temperature), then curating/merging; and
    (b) dropping the factual gates that pull output toward the conservative/deterministic.
-   Literal temperature control needs a direct-API `tools/` script (+ an API key).
+   Literal temperature control needs a direct-API `tools/` script (+ an API key). This is
+   now a fixed procedure, not a verbal convention: `/write-aesthetic-post` MUST spawn 3
+   independent `writer` variants and then curate/merge the strongest line per card (the
+   orchestrator does the merge; log the choices in DECISIONS.md).
+
+**The aesthetic track has its OWN machine oracle now (`tools/aesthetic_audit.py`).**
+Skipping the fact machine does not mean skipping machine checks — it means porting the
+`citation_audit` *idea* to this track's real failure modes, which are enumerable and do not
+need taste: 破折号 (—), over-long cards, banned 翻译腔 phrases (shared
+`common/banned_phrases.json`), unbalanced 「」, the 0X / 0N card-numbering consistency, an
+overline that leaks AI, and — the ONE residual fact surface — an attributed film line that
+is not marked `verified`. Run it on the `aesthetic_post.json` deliverable:
+`python3 tools/aesthetic_audit.py articles/article_<slug>/aesthetic_post.json`. This is the
+HARD gate for this track (the LLM taste review stays advisory, for what a tool can't judge).
+Enter the whole flow via `/write-aesthetic-post <theme>`.
 
 **Tone rules for this track (HARD):**
 - **Don't mention AI / that the content is AI-made** — except on AI-news posts. Readers don't

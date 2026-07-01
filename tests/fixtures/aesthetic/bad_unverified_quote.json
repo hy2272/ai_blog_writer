@@ -1,0 +1,13 @@
+{
+  "track": "aesthetic_lifestyle",
+  "overline": "生活美学",
+  "cards": [
+    {"index": 1, "total": 2, "text": "午后的光很轻，落在桌上像一帧电影。"},
+    {"index": 2, "total": 2, "text": "「记得要幸福哦。」", "quote": true}
+  ],
+  "caption": "慢下来的一天。\n#生活美学",
+  "hashtags": ["#生活美学"],
+  "quotes": [
+    {"text": "记得要幸福哦。", "work": "《情书》", "verified": false}
+  ]
+}
