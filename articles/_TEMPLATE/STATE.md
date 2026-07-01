@@ -41,6 +41,9 @@ S0 track router). Copy the block that matches; delete the other.
 - `visual_style`: the card style preset (`typographic-cards`, `photo-triptych`, or a named
   preset like `film_morning`).
 
+`mixed_explainer` is RESERVED (needs a paragraph-level claim classifier that does not exist
+yet) — do not use it; pick `factual_ai_news` or `aesthetic_lifestyle`.
+
 ## Section nodes (set at S0)
 | k | section purpose | status | loop count | audit |
 |---|---|---|---:|---|

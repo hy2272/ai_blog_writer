@@ -28,8 +28,12 @@ STATE.md before anything else; it is a first-class field, never inferred mid-run
   review. The oracle SHRINKS to `tools/aesthetic_audit.py` (破折号 / card length / banned
   phrases / 「」 closure / 0X-0N numbering / overline / **quote verification**). Enter via
   `/write-aesthetic-post`; the runbook is `common/behavior_notes/aesthetic-track.md`.
-- **`mixed_explainer`** — factual paragraphs get the fact gates; 感受 paragraphs are free
-  prose. Classify per paragraph; do not skip the gates wholesale.
+- **`mixed_explainer`** — RESERVED; not implemented. It needs a paragraph-level claim
+  classifier (factual paragraphs get the fact gates; 感受 paragraphs are free prose) that does
+  not exist yet. Do NOT select it — a half-built mixed track that silently skips fact gates on
+  a factual paragraph is more dangerous than picking a clean single track. Until the classifier
+  ships, route a mixed piece to `factual_ai_news` (gate everything) and hand-soften the 感受
+  lines, or split it into two posts.
 The stages below (S1–S7) are the factual-track chain. For the aesthetic track, follow the
 skip list above and jump to the aesthetic runbook.
 
