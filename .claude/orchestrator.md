@@ -82,6 +82,21 @@ checks the de-flavored text, not the stale section drafts):
 `python3 tools/audit_article.py articles/article_<slug> --draft humanized.md --as-of <research date>`.
 A red audit means humanizing dropped a citation/section/keyword — fix before S6.
 
+**S5.5 — Gemini polish (you run this tool; auto, all tracks).** After S5 is green and BEFORE
+you hand the draft to the human for S6, run `tools/gemini_polish.py` so the human reads the
+humanized draft and a polished alternative side by side. This is automatic — do not wait to be
+asked. Pass `--mode <track>` (sets the per-mode temperature: `factual_ai_news`/`mixed_explainer`
+low 0.3, `aesthetic_lifestyle` high 0.85 — the `gemini_temperature` from the STATE `track` block)
+and forward the track's oracle args after a bare `--`:
+`python3 tools/gemini_polish.py humanized.md --mode <track> --out polished.md --diff-html stage_results/polish_diff.html -- --source-pack source_pack.json --contract contracts/sec1_contract.json`
+(aesthetic: input is `aesthetic_post.json`, no oracle args needed). The tool re-runs the track's
+oracle (via `run_oracle.py`) on BOTH the pre- and post-polish artifact and writes the delta into
+the diff banner — this is the machine signal; the per-hunk 🟢🟡🔴 tags point the human at each
+change. **The polish is never auto-applied.** Present the diff at the S6 gate; the human picks
+which changes to keep. Any accepted change is just an edit to the draft and re-enters the normal
+gate (re-run the citation audit / aesthetic audit before S7). Skip only if
+`track.gemini_polish == false`. See `common/behavior_notes/gemini-polish-pass.md`.
+
 **S6 — editorial-review (advisory).** Dispatch `editorial-reviewer` (read-only). It
 judges ONLY the axes the audit can't see (freshness of angle, narrative, AI 味,
 argument soundness, tone). It emits BLOCKER/WARN/NOTE — it does NOT edit or decide.

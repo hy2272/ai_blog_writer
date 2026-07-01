@@ -11,6 +11,36 @@ carry the detail.
 
 ---
 
+## 2026-07-01 — oracle dispatcher + S5.5 Gemini polish (unified-skeleton groundwork)
+- **What:** first two pieces of the "one skeleton, N fillings" rework agreed on claude.ai.
+  (1) **`tools/run_oracle.py`** — a thin per-track oracle dispatcher (option A + option (i)):
+  `--mode <track>` → the one oracle that gates it (`factual_ai_news`→citation_audit,
+  `aesthetic_lifestyle`→aesthetic_audit, `mixed_explainer`→explainer_audit), with terse aliases
+  (`tech_news`/`aesthetic`/`explainer`). It `execv`s the oracle so exit code + stdout pass through
+  untouched — a switch, not a judge; it never reads findings. The three oracles stay independent
+  and directly runnable. explainer row is reserved (oracle not shipped → honest exit 3).
+  (2) **`tools/gemini_polish.py` v2 → S5.5**: per-mode temperature (factual/explainer 0.3,
+  aesthetic 0.85 — the direct-API script is where a temperature knob actually exists, unlike a
+  subagent); re-runs the track oracle via the dispatcher on BOTH pre- and post-polish artifact and
+  shows the **before→after finding delta** (authoritative signal — the green-dashboard-trap antidote
+  at the polish stage) plus an HTML side-by-side diff with per-hunk 🟢🟡🔴 hints; aesthetic path
+  polishes only NON-quote card texts (verified quotes keep provenance); `--polished` offline path
+  regenerates the diff without an API call. (3) orchestrator gains an **S5.5** step (auto, all
+  tracks, never auto-applies — diff goes to the S6 human gate); STATE `track` block gains
+  `gemini_polish` + `gemini_temperature`; behavior note rewritten from "optional last-mile" to the
+  auto-run oracle-checked step.
+- **Why:** collapse "mode→which oracle" into one home (needed at S4 and S5.5) so a 4th track = one
+  row; and promote Gemini polish from a forgettable manual script to an auto-run, machine-checked,
+  per-mode step the human reviews via diff — keeping correctness on the machine and taste on the human.
+- **Risk:** run_oracle is pass-through only (no behavior change to existing gates). gemini_polish v2
+  keeps v1 plain-text usage working (no `--mode` → no generationConfig → model default). The S5.5
+  live API path (temperature param + response parse) is UNTESTED live — only the offline `--polished`
+  path + oracle-delta + diff were exercised. explainer track is NOT wired yet (oracle pending).
+- **Verified:** run_oracle parity vs direct calls on aesthetic/factual fixtures (exit 0 and exit 1
+  passthrough, aliases, missing-oracle exit 3, usage errors). gemini_polish offline on both tracks:
+  aesthetic PASS→FAIL delta catches an injected 破折号; factual PASS→FAIL delta catches a dropped
+  `[S2]`; HTML diff renders correct per-hunk 🟢🟡🔴 + reasons.
+
 ## 2026-07-01 — close aesthetic-track artifact seams (follow-up to #21)
 - **What:** acts on the two round-2 reviews of #21. (1) **quote verification is no longer
   self-certifying** — `aesthetic_audit.py` now requires provenance (`verified_source` URL or

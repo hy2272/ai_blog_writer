@@ -19,7 +19,9 @@ S0 track router). Copy the block that matches; delete the other.
   "platform": "xiaohongshu",
   "fact_gates": true,
   "quote_verification_required": false,
-  "visual_style": "typographic-cards"
+  "visual_style": "typographic-cards",
+  "gemini_polish": true,
+  "gemini_temperature": 0.3
 }
 ```
 
@@ -29,7 +31,9 @@ S0 track router). Copy the block that matches; delete the other.
   "platform": "xiaohongshu",
   "fact_gates": false,
   "quote_verification_required": true,
-  "visual_style": "photo-triptych"
+  "visual_style": "photo-triptych",
+  "gemini_polish": true,
+  "gemini_temperature": 0.85
 }
 ```
 
@@ -40,6 +44,11 @@ S0 track router). Copy the block that matches; delete the other.
   named film line / lyric / attribution (the residual fact surface) via `aesthetic_audit.py`.
 - `visual_style`: the card style preset (`typographic-cards`, `photo-triptych`, or a named
   preset like `film_morning`).
+- `gemini_polish`: whether the S5.5 Gemini polish pass runs (default `true`, all tracks). The
+  polish is never auto-applied — the orchestrator prepares a diff for the S6 human gate.
+- `gemini_temperature`: the sampling temperature for that pass. Low (0.3) for factual/explainer
+  (don't reword facts); high (0.85) for aesthetic (want a fresher phrasing — the aesthetic oracle
+  + diff catch any overreach). See `behavior_notes/gemini-polish-pass.md`.
 
 `mixed_explainer` is RESERVED (needs a paragraph-level claim classifier that does not exist
 yet) — do not use it; pick `factual_ai_news` or `aesthetic_lifestyle`.
