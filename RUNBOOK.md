@@ -5,7 +5,17 @@ The step-by-step. Conventions live in `CLAUDE.md`; the stage logic in
 
 ## A. Start
 1. `/new-article <slug>` — scaffold the workspace.
-2. `/write-article <topic>` — enter the orchestrator at S0.
+2. Pick the track (S0 sets the STATE.md `track` block; it decides which gates run):
+   - factual AI-news → `/write-article <topic>` (the pipeline in §B).
+   - 生活美学 / 治愈系 / 诗意 card post → `/write-aesthetic-post <theme>` (§B-aesthetic).
+
+## B-aesthetic. The aesthetic track (non-factual)
+No fact machine — poetry has no `[Sn]` claims, so citation / grounding / fact-check are a
+category error and are skipped. Flow: editorial-lite → **3 independent writer variants →
+curate/merge** → verify only a quoted film line → humanize → `aesthetic_post.json` →
+`tools/aesthetic_audit.py` (HARD gate: 破折号 / card length / banned phrases / 「」 closure /
+0X-0N numbering / overline / quote verification) → `adapter.py --style photo-triptych`.
+See `common/behavior_notes/aesthetic-track.md`.
 
 ## B. The pipeline (what happens, where it stops)
 | Stage | Agent | Output | Gate? |

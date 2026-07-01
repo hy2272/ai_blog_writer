@@ -17,6 +17,22 @@ Pick / confirm the hot topic with the human. Split the article into 3-5 **sectio
 nodes**, each the smallest independently-verifiable unit (one claim cluster, one
 angle). Write the node list into STATE.md. Log the angle decision in DECISIONS.md.
 
+**S0 track router (decide FIRST — it selects the pipeline).** Set the `track` block in
+STATE.md before anything else; it is a first-class field, never inferred mid-run:
+- **`factual_ai_news`** (`fact_gates: true`) — AI hot-topic explainer. Runs the FULL chain
+  below: research → contract → grounding → fact-check → citation audit → source authority.
+- **`aesthetic_lifestyle`** (`fact_gates: false`) — 生活美学 / 治愈系 / 诗意 card post. The
+  fact machine is a category error here (poetry has no `[Sn]` claims), so **SKIP S1 research,
+  the grounding gates, S3 fact-check, and S4 citation audit**. Keep editorial (lite), the
+  writer (spawn 3 variants + curate — see `/write-aesthetic-post`), the humanizer, and taste
+  review. The oracle SHRINKS to `tools/aesthetic_audit.py` (破折号 / card length / banned
+  phrases / 「」 closure / 0X-0N numbering / overline / **quote verification**). Enter via
+  `/write-aesthetic-post`; the runbook is `common/behavior_notes/aesthetic-track.md`.
+- **`mixed_explainer`** — factual paragraphs get the fact gates; 感受 paragraphs are free
+  prose. Classify per paragraph; do not skip the gates wholesale.
+The stages below (S1–S7) are the factual-track chain. For the aesthetic track, follow the
+skip list above and jump to the aesthetic runbook.
+
 **S1 — research.** Dispatch `research`. It returns `source_pack.json` (dated sources)
 + a research brief. ⏸ **HUMAN GATE**: present the angle + the 5-8 strongest sources;
 ask the human to approve the angle and confirm sources are fresh enough. Do not proceed
@@ -67,9 +83,11 @@ argument soundness, tone). It emits BLOCKER/WARN/NOTE — it does NOT edit or de
 YOU decide what to fix, dispatch the fixer (`writer`/`humanizer`), and re-verify
 (citation audit green again). BLOCKER must be resolved; WARN/NOTE are your call (log it).
 
-**S7 — output.** Dispatch `output`: emit `final.md` (+ `final.html`). Run
-`python3 tools/audit_article.py articles/article_<slug> --as-of <research date> --check-links --strict`.
-Update STATE.md to done only on green.
+**S7 — output.** Dispatch `output`: emit `final.md` (+ `final.html`). Run the final gate
+with source-authority + the shared banned-phrase list enabled (factual track):
+`python3 tools/audit_article.py articles/article_<slug> --as-of <research date> --check-links --strict --source-authority common/source_authority.json --banned-phrases common/banned_phrases.json`.
+Update STATE.md to done only on green. (Aesthetic track: run `tools/aesthetic_audit.py`
+on the card post JSON instead — no citation/source-authority audit.)
 
 **↻ self-improvement (you do this).** If S6 surfaced a recurring "AI 味" or sourcing
 pattern, write it back to `common/behavior_notes/` (copy `_TEMPLATE.md`) or add a line
@@ -140,3 +158,6 @@ fan out only at S1/S3.
 - `/new-article <slug>` — scaffold a per-article workspace.
 - `/status` — print the pipeline state table.
 - `/write-section <k>` — (re-)run a single section's write→fact-check→audit loop.
+- `/write-article <topic>` — the full factual AI-news pipeline (this playbook).
+- `/write-aesthetic-post <theme>` — the aesthetic track: 3 variant drafts → curate →
+  humanize → `aesthetic_audit.py`. No fact/citation/grounding gates.
