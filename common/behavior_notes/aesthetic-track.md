@@ -14,6 +14,12 @@ a SECOND track alongside the default AI-news track. Pick it when the brief is "�
 2. **The ONE residual fact surface = quoted material.** A real film line / lyric / attribution
    is the only thing left to verify (the oracle shrinks to just the quote). Verify the quote
    and its attribution (a quick web check), OR don't hard-attribute. Everything else is free.
+   **Verification needs provenance, not a self-asserted boolean:** a quote marked
+   `verified: true` must also carry `verified_source` (the URL you checked) or `verified_by`
+   (who@date). A bare `verified: true` an agent typed itself is the aesthetic version of the
+   green-dashboard trap (marked-verified ≠ actually-verified) — `aesthetic_audit.py` FAILs it,
+   the same discipline as the news track's dated-URL rule. And every quote CARD (`quote:true`
+   or a whole-card 「…」) must map to such a record, so a quote can't ship unregistered.
 3. **Keep the editorial / writer / humanizer / taste passes.** Concept + structure, the prose
    itself, 去 AI 味, and taste/flow review are all still valuable — only the factual gates go.
 4. **"Temperature" is not a subagent knob in this harness.** The orchestrator cannot set a

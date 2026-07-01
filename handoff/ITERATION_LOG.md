@@ -11,7 +11,34 @@ carry the detail.
 
 ---
 
-## 2026-07-01 — first-class content tracks + aesthetic-track machine oracle
+## 2026-07-01 — close aesthetic-track artifact seams (follow-up to #21)
+- **What:** acts on the two round-2 reviews of #21. (1) **quote verification is no longer
+  self-certifying** — `aesthetic_audit.py` now requires provenance (`verified_source` URL or
+  `verified_by`) on any `verified` quote, and every quote CARD (quote:true / whole-card 「…」)
+  must map to such a record (fixes the aesthetic green-dashboard trap; the demo《情书》line
+  was corrected to the real 「你好吗？我很好」). (2) **audited object == rendered object** —
+  `adapter.py --aesthetic-json` builds cards straight from `aesthetic_post.json` (forces
+  photo-triptych, no `[Sn]`), and the manifest now records each card's `text`; no markdown
+  round-trip to drift. (3) new **`aesthetic-writer` agent**; `/write-aesthetic-post` dispatches
+  it (3 variants) instead of the factual `writer`. (4) em-dash regex drops `--` (false-positive
+  on the codeless aesthetic track); (5) card-length default 40→32 (this 栏目 is 一句一卡);
+  (6) new **card-rhythm** WARN (adjacent cards sharing an opening char / one char clustering
+  across most cards); (7) overline AI regex broadened (`AI|AIGC|人工智能|生成式|智能生成`);
+  (8) `citation_audit --banned-phrases-scope body|all` (default body skips the References block
+  so a cited source's title can't red the article); (9) `mixed_explainer` marked RESERVED.
+- **Why:** review #1 — `verified:true` was trusted blindly (the exact failure the whole system
+  exists to prevent) and the thresholds/regex were loose. review #2 — the audit gated a JSON
+  but the adapter still ate markdown (audited ≠ published), the command dispatched the wrong
+  writer, and References titles could false-positive the banned lint.
+- **Risk:** provenance is presence-checked, not fetched (a fake URL passes structurally — same
+  limit as the news track's dated-URL rule; the human/fact surface is small here). card-rhythm
+  thresholds are conservative (ceil(0.75·N), min 4) to avoid false positives; a very short post
+  (<4 cards) skips the clustering check. adapter aesthetic path is CI-tested `--no-render` only
+  (PNG still needs Chrome).
+- **Verified:** CI — 6 aesthetic bad fixtures FAIL (incl. no-provenance + unregistered quote
+  card), good PASS with 0 WARN; references banned phrase PASSes body-scope, FAILs `--scope all`;
+  adapter `--aesthetic-json` manifest card text matches the JSON 1:1; all #21 + prior gates and
+  the markdown/triptych adapter paths still green.
 - **What:** turns the two reviewers' converging asks into one PR. (1) `tools/aesthetic_audit.py`
   — the aesthetic track's own oracle (2nd port of the citation_audit *idea*): 破折号, card
   length, banned phrases, 「」 closure, 0X-0N card numbering, overline (no AI), and the residual

@@ -294,14 +294,45 @@ jobs:
       - name: Aesthetic audit — good post passes
         run: python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/good_post.json
 
-      - name: Aesthetic audit — bad posts fail (dash / numbering / unverified quote / AI overline)
+      - name: Aesthetic audit — bad posts fail (dash / numbering / quote / overline / provenance)
         run: |
-          for f in bad_em_dash bad_numbering bad_unverified_quote bad_ai_overline; do
+          for f in bad_em_dash bad_numbering bad_unverified_quote bad_ai_overline \
+                   bad_quote_no_provenance bad_quote_card_no_record; do
             if python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/$f.json; then
               echo "aesthetic $f.json unexpectedly passed"
               exit 1
             fi
           done
+
+      - name: Banned-phrase scan skips the References block by default; --scope all catches it
+        run: |
+          python3 tools/citation_audit.py tests/fixtures/citation/references_banned_phrase.md \
+            --source-pack articles/article_demo/source_pack.json \
+            --banned-phrases common/banned_phrases.json --as-of 2026-06-09
+          if python3 tools/citation_audit.py tests/fixtures/citation/references_banned_phrase.md \
+            --source-pack articles/article_demo/source_pack.json \
+            --banned-phrases common/banned_phrases.json --banned-phrases-scope all --as-of 2026-06-09; then
+            echo "references banned phrase unexpectedly passed under --banned-phrases-scope all"
+            exit 1
+          fi
+
+      - name: Aesthetic post renders through the adapter; card text matches the audited JSON
+        run: |
+          rm -rf /tmp/xhs_ae
+          python3 platforms/xiaohongshu/adapter.py \
+            --aesthetic-json tests/fixtures/aesthetic/good_post.json \
+            --out-dir /tmp/xhs_ae --no-render
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path("/tmp/xhs_ae/content_manifest.json").read_text(encoding="utf-8"))
+          post = json.loads(Path("tests/fixtures/aesthetic/good_post.json").read_text(encoding="utf-8"))
+          # audited object == rendered object: same count, same per-card text
+          assert m["card_count"] == len(post["cards"]), (m["card_count"], len(post["cards"]))
+          for mc, pc in zip(m["cards"], post["cards"]):
+              assert mc["text"] == pc["text"], (mc["text"], pc["text"])
+          print("OK: manifest card text matches aesthetic_post.json")
+          PY
 
       - name: gen_image --dry-run makes no API call and writes a manifest (offline, no cost)
         run: |
