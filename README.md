@@ -43,7 +43,7 @@ machine oracles:
 | `tools/citation_audit.py` | every claim has an `[Sn]` marker (no 裸论断), sources are dated + fresh, word-count / required-keyword / must-cite coverage, optional source-authority + `--banned-phrases`. CJK-aware. | 0 = PASS / 1 = FAIL |
 | `tools/grounding_gate.py` | faithfulness — outline points trace to sources (`source_ids`), draft claims trace to outline (`outline_ids`). Fails closed on an empty verdict (`--allow-empty` to override). | 0 = PASS / 1 = FAIL |
 | `tools/factcheck_gate.py` | the fact-checker's per-claim verdict (cited ≠ true); any non-`SUPPORTED` claim fails. Fails closed on an empty verdict. | 0 = PASS / 1 = FAIL |
-| `tools/aesthetic_audit.py` | the **aesthetic track's** oracle — 破折号 / card length / banned phrases / 「」 closure / 0X-0N card numbering / overline / **quote verification**. No `[Sn]` (poetry has no claims). | 0 = PASS / 1 = FAIL |
+| `tools/aesthetic_audit.py` | the **aesthetic track's** oracle — 破折号 / card length / banned phrases / 「」 closure / 0X-0N card numbering / overline / card rhythm / **quote verification with provenance** (a `verified` quote must carry `verified_source`/`verified_by`, not a bare boolean). No `[Sn]` (poetry has no claims). | 0 = PASS / 1 = FAIL |
 | `tools/audit_article.py` | wrapper that audits every section contract and re-checks final structure, section headings/markers, preserved citations, and unioned coverage requirements. | 0 = PASS / 1 = FAIL |
 
 ## Two content tracks
@@ -59,7 +59,11 @@ selects which gates run — the orchestrator routes on it, agents never infer it
 The aesthetic track is the second port of the `citation_audit` *idea*: keep the LLM judge
 for what needs taste, and let a deterministic tool catch the hard rules (破折号, banned
 翻译腔 phrases from `common/banned_phrases.json`, card numbering, quote verification) that
-do not. Enter it with `/write-aesthetic-post <theme>`.
+do not. Enter it with `/write-aesthetic-post <theme>` — which spawns the dedicated
+`aesthetic-writer` in three independent variants (diversity substitutes for temperature),
+curates, then gates on `aesthetic_audit.py`. The audited `aesthetic_post.json` is also the
+**single render source**: `adapter.py --aesthetic-json` builds the cards straight from it, so
+the published cards provably match the audited object (no markdown round-trip to drift).
 
 ## Pipeline
 
@@ -167,8 +171,9 @@ RUNBOOK.md             step-by-step
 .claude/
   orchestrator.md      main-session playbook + gates + failure-mode防范
   runtime.md           how to run things, where files go
-  agents/              9 sub-agent specs (research, editorial, writer, fact-checker,
-                       grounding-checker, citation-auditor, humanizer, editorial-reviewer, output)
+  agents/              10 sub-agent specs (research, editorial, writer, fact-checker,
+                       grounding-checker, citation-auditor, humanizer, editorial-reviewer,
+                       output, aesthetic-writer)
   commands/            /write-article /write-aesthetic-post /new-article /status /write-section /handoff
 common/
   style_patterns.md    voice + 去 AI 味 + the §7 hard-rule checklist (single source of truth)

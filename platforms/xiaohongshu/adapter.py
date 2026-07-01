@@ -232,6 +232,59 @@ def build_cards(
     return cards
 
 
+def build_cards_from_aesthetic_post(post: dict) -> tuple[str, list[Card], dict, list[str], str, str]:
+    """Build the render inputs DIRECTLY from an aesthetic_post.json — the same artifact
+    tools/aesthetic_audit.py gates on — so the audited object and the rendered object are
+    one source of truth (no markdown round-trip that could drift). Returns
+    (title, cards, meta, tags, caption_override, body_text).
+
+    Card mapping: a card with "kind":"cover" renders as the triptych cover (its `title` or the
+    post `theme`, `subtitle`, optional `bands`); every other card is a single-photo film frame
+    carrying its `text` (author line breaks on "\\n" are preserved). This mirrors the audit's
+    view of `cards[]` exactly — same count, same order, same text."""
+    theme = post.get("theme") or "生活美学"
+    overline = post.get("overline") or "生活美学"
+    images = post.get("images") or {}
+    post_cards = post.get("cards") or []
+
+    cards: list[Card] = []
+    body_texts: list[str] = []
+    for c in post_cards:
+        text = c.get("text", "") if isinstance(c, dict) else str(c)
+        body_texts.append(text)
+        if isinstance(c, dict) and c.get("kind") == "cover":
+            cards.append(Card("cover", c.get("title") or theme,
+                              [c.get("subtitle", "")] if c.get("subtitle") else [],
+                              overline))
+        else:
+            lines = [ln for ln in text.split("\n") if ln != ""] or [text]
+            cards.append(Card("body", "", lines, overline))
+
+    meta = {
+        "style": "photo-triptych",
+        "cover_title": theme,
+        "caption": post.get("caption"),
+        "triptych": {
+            "overline": overline,
+            "tagline": images.get("tagline", ""),
+            "bands": images.get("cover_bands") or [],
+            "body_images": images.get("body_images") or [],
+            "nowrap_terms": images.get("nowrap_terms") or [],
+        },
+    }
+    if images.get("font") or post.get("font"):
+        meta["font"] = images.get("font") or post.get("font")
+
+    tags = list(post.get("hashtags") or [])
+    caption_override = post.get("caption") or ""
+    # body_text is the "verified body" that --check-caption checks the caption's numbers
+    # against. It must be the CARD text only — NOT the caption itself, or the caption would
+    # verify against itself and any invented number would pass (same self-approval bug the
+    # factual track avoids by checking the caption against the article body, not the caption).
+    body_text = "\n".join(body_texts)
+    return theme, cards, meta, tags, caption_override, body_text
+
+
 def card_body_width(card: Card) -> int:
     return sum(display_len(p) for p in card.body)
 
@@ -493,13 +546,16 @@ body {{ margin:0; width:{CARD_W}px; height:{CARD_H}px; background:#15110d; }}
 
 
 def html_card(card: Card, idx: int, total: int, style: str = "editorial",
-              meta: dict | None = None) -> str:
+              meta: dict | None = None, body_index: int | None = None) -> str:
     if style == "photo-triptych":
         if card.kind == "cover":
             return html_cover_triptych(card, idx, total, meta or {})
-        # body cards on this style are single-photo film frames; cover is always card 1,
-        # so the Nth body card maps to body_images[idx-2].
-        return html_body_photo(card, idx, total, meta or {}, body_index=idx - 2)
+        # body cards on this style are single-photo film frames. body_index selects the
+        # background from meta.triptych.body_images. Default idx-2 assumes the classic layout
+        # (cover is card 1); the aesthetic-JSON path passes an explicit ordinal so a post
+        # whose first card is itself a frame still maps images correctly.
+        bi = body_index if body_index is not None else idx - 2
+        return html_body_photo(card, idx, total, meta or {}, body_index=bi)
     is_cover = card.kind == "cover"
     paras = "\n".join(f"<p>{_format_paragraph(p)}</p>" for p in card.body)
     # A large faded page number anchors the composition and fills the lower field so a
@@ -753,7 +809,7 @@ def write_manifest(
         "format": "long_image_post",
         "default": True,
         "title": title,
-        "cover_title": cards[0].title if cards else title,
+        "cover_title": (cards[0].title if cards else "") or title,
         "card_count": len(cards),
         "rendered_count": len(rendered),
         "image_size": {"width": CARD_W, "height": CARD_H},
@@ -764,6 +820,10 @@ def write_manifest(
                 "index": i,
                 "kind": card.kind,
                 "title": card.title,
+                # The rendered text, so a caller can verify the published cards match the
+                # audited source (aesthetic_post.json). CITE markers are stripped in render;
+                # here we keep the raw body text as laid onto the card.
+                "text": "\n".join(card.body),
                 "html": f"card_{i:02d}.html" if f"card_{i:02d}.html" in persisted_html else None,
                 "png": f"card_{i:02d}.png" if f"card_{i:02d}.png" in rendered else None,
             }
@@ -787,20 +847,32 @@ def generate_package(
     render_timeout: int,
     meta: dict | None = None,
     style: str | None = None,
+    aesthetic_post: dict | None = None,
 ) -> dict:
     meta = meta or {}
-    # Precedence: explicit --style > a "style" field in the meta sidecar > editorial default.
-    style = style or meta.get("style") or "editorial"
-    text = input_path.read_text(encoding="utf-8")
-    title, sections, refs, citations, parsed_tags = parse_markdown(text)
-    # Precedence: explicit --tags > hashtags authored in the draft > DEFAULT_TAGS. Either
-    # way the hashtags live in the caption only, never on a card.
-    tags = tags or parsed_tags or DEFAULT_TAGS
-    cards = build_cards(
-        title, sections, refs, citations,
-        cover_title=meta.get("cover_title"),
-        cover_subtitle=meta.get("cover_subtitle"),
-    )
+    if aesthetic_post is not None:
+        # Aesthetic track: render straight from the audited aesthetic_post.json (Option B —
+        # audited object == rendered object). No markdown parse, no [Sn], always photo-triptych.
+        title, cards, ae_meta, ae_tags, _cap, text = build_cards_from_aesthetic_post(aesthetic_post)
+        ae_meta.update(meta or {})  # allow a --meta sidecar to override images/font
+        meta = ae_meta
+        style = "photo-triptych"
+        citations: set[str] = set()
+        sections = []
+        tags = tags or ae_tags or DEFAULT_TAGS
+    else:
+        # Precedence: explicit --style > a "style" field in the meta sidecar > editorial default.
+        style = style or meta.get("style") or "editorial"
+        text = input_path.read_text(encoding="utf-8")
+        title, sections, refs, citations, parsed_tags = parse_markdown(text)
+        # Precedence: explicit --tags > hashtags authored in the draft > DEFAULT_TAGS. Either
+        # way the hashtags live in the caption only, never on a card.
+        tags = tags or parsed_tags or DEFAULT_TAGS
+        cards = build_cards(
+            title, sections, refs, citations,
+            cover_title=meta.get("cover_title"),
+            cover_subtitle=meta.get("cover_subtitle"),
+        )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     rendered: list[str] = []
@@ -820,8 +892,13 @@ def generate_package(
         path.write_text(markup, encoding="utf-8")
         persisted_html.append(path.name)
 
+    body_ord = 0
     for i, card in enumerate(cards, start=1):
-        markup = html_card(card, i, total, style=style, meta=meta)
+        bi = None
+        if style == "photo-triptych" and card.kind != "cover":
+            bi = body_ord
+            body_ord += 1
+        markup = html_card(card, i, total, style=style, meta=meta, body_index=bi)
         png_path = out_dir / f"card_{i:02d}.png"
         if not render:
             persist_html(i, markup)
@@ -860,7 +937,7 @@ def generate_package(
     write_manifest(out_dir, title, cards, rendered, citations, unverified, persisted_html)
     return {
         "title": title,
-        "cover_title": cards[0].title if cards else title,
+        "cover_title": (cards[0].title if cards else "") or title,
         "cards": len(cards),
         "rendered": len(rendered),
         "caption_unverified_numbers": unverified,
@@ -870,8 +947,13 @@ def generate_package(
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Build the default Xiaohongshu long-image post package.")
-    ap.add_argument("input", help="verified final.md or section draft markdown")
+    ap.add_argument("input", nargs="?", help="verified final.md or section draft markdown "
+                                             "(omit when using --aesthetic-json)")
     ap.add_argument("--out-dir", required=True, help="directory for card HTML/PNG + caption")
+    ap.add_argument("--aesthetic-json",
+                    help="render cards DIRECTLY from an aesthetic_post.json (the artifact "
+                         "aesthetic_audit.py gates on) — audited object == rendered object. "
+                         "Forces --style photo-triptych; ignores the markdown input.")
     ap.add_argument("--no-render", action="store_true", help="write HTML only; do not call Chrome")
     ap.add_argument("--render-timeout", type=int, default=20, help="seconds to wait per Chrome screenshot")
     ap.add_argument("--tags", help="comma-separated suggested Xiaohongshu topics")
@@ -887,9 +969,17 @@ def main(argv=None) -> int:
     if tags is not None:
         tags = [x for x in tags if x]
     meta = json.loads(Path(args.meta).read_text(encoding="utf-8")) if args.meta else {}
+
+    aesthetic_post = None
+    if args.aesthetic_json:
+        aesthetic_post = json.loads(Path(args.aesthetic_json).read_text(encoding="utf-8"))
+    elif not args.input:
+        ap.error("input markdown is required unless --aesthetic-json is given")
+
     result = generate_package(
-        Path(args.input), Path(args.out_dir), not args.no_render, tags, args.render_timeout,
-        meta=meta, style=args.style,
+        Path(args.input) if args.input else Path("."),
+        Path(args.out_dir), not args.no_render, tags, args.render_timeout,
+        meta=meta, style=args.style, aesthetic_post=aesthetic_post,
     )
     print("xhs_image_post:", json.dumps(result, ensure_ascii=False))
     unverified = result["caption_unverified_numbers"]

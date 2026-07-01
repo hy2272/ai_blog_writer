@@ -1,0 +1,14 @@
+{
+  "track": "aesthetic_lifestyle",
+  "overline": "生活美学",
+  "cards": [
+    {"index": 1, "total": 6, "text": "今天我不赶时间。"},
+    {"index": 2, "total": 6, "text": "路上我放慢脚步。"},
+    {"index": 3, "total": 6, "text": "午后我泡了杯茶。"},
+    {"index": 4, "total": 6, "text": "傍晚我坐在窗边。"},
+    {"index": 5, "total": 6, "text": "夜里我关了灯。"},
+    {"index": 6, "total": 6, "text": "安静，也刚刚好。"}
+  ],
+  "caption": "慢下来的一天。\n#生活美学",
+  "hashtags": ["#生活美学"]
+}

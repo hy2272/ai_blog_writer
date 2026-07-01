@@ -1,0 +1,14 @@
+{
+  "track": "aesthetic_lifestyle",
+  "overline": "生活美学",
+  "cards": [
+    {"index": 1, "total": 6, "text": "清晨的光落在枕边。"},
+    {"index": 2, "total": 6, "text": "路上有光，很安静。"},
+    {"index": 3, "total": 6, "text": "午后光很轻。"},
+    {"index": 4, "total": 6, "text": "傍晚的光变软了。"},
+    {"index": 5, "total": 6, "text": "夜里关灯，还留一点光。"},
+    {"index": 6, "total": 6, "text": "回到家，泡一壶茶。"}
+  ],
+  "caption": "慢下来的一天。\n#生活美学",
+  "hashtags": ["#生活美学"]
+}

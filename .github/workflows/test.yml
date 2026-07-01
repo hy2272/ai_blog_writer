@@ -294,14 +294,82 @@ jobs:
       - name: Aesthetic audit — good post passes
         run: python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/good_post.json
 
-      - name: Aesthetic audit — bad posts fail (dash / numbering / unverified quote / AI overline)
+      - name: Aesthetic audit — bad posts fail (dash / numbering / quote / overline / provenance)
         run: |
-          for f in bad_em_dash bad_numbering bad_unverified_quote bad_ai_overline; do
+          for f in bad_em_dash bad_numbering bad_unverified_quote bad_ai_overline \
+                   bad_quote_no_provenance bad_quote_card_no_record bad_embedded_quote_no_record \
+                   bad_backdoor_switch; do
             if python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/$f.json; then
               echo "aesthetic $f.json unexpectedly passed"
               exit 1
             fi
           done
+
+      - name: Quote-verification exemption is CLI-only, not a post-JSON backdoor
+        run: |
+          # A writer setting quote_verification_required:false in the data must NOT bypass —
+          # it still FAILs (and the backdoor attempt is flagged). The exemption is CLI-only.
+          if python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/bad_backdoor_switch.json; then
+            echo "post-JSON quote_verification_required:false unexpectedly bypassed the gate"
+            exit 1
+          fi
+          # The runner (not the data) may relax the check: --allow-unverified-quotes downgrades
+          # the quote findings to WARN, so a no-provenance quote then PASSes.
+          python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/bad_quote_no_provenance.json \
+            --allow-unverified-quotes
+
+      - name: Card-rhythm warns on content-word clustering but exempts function words
+        run: |
+          # 「光」on 5 of 6 cards is real 氛围 collapse -> WARN -> FAIL under --strict.
+          if python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/warn_rhythm_content.json --strict; then
+            echo "content-word clustering unexpectedly passed --strict"
+            exit 1
+          fi
+          # 「我」on 5 of 6 is the natural diary voice, not clustering -> exempt -> PASS.
+          python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/rhythm_stopword_ok.json --strict
+
+      - name: Banned-phrase scan skips the References block by default; --scope all catches it
+        run: |
+          python3 tools/citation_audit.py tests/fixtures/citation/references_banned_phrase.md \
+            --source-pack articles/article_demo/source_pack.json \
+            --banned-phrases common/banned_phrases.json --as-of 2026-06-09
+          if python3 tools/citation_audit.py tests/fixtures/citation/references_banned_phrase.md \
+            --source-pack articles/article_demo/source_pack.json \
+            --banned-phrases common/banned_phrases.json --banned-phrases-scope all --as-of 2026-06-09; then
+            echo "references banned phrase unexpectedly passed under --banned-phrases-scope all"
+            exit 1
+          fi
+
+      - name: Aesthetic post renders through the adapter; card text matches the audited JSON
+        run: |
+          rm -rf /tmp/xhs_ae
+          python3 platforms/xiaohongshu/adapter.py \
+            --aesthetic-json tests/fixtures/aesthetic/good_post.json \
+            --out-dir /tmp/xhs_ae --no-render
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          m = json.loads(Path("/tmp/xhs_ae/content_manifest.json").read_text(encoding="utf-8"))
+          post = json.loads(Path("tests/fixtures/aesthetic/good_post.json").read_text(encoding="utf-8"))
+          # audited object == rendered object: same count, same per-card text
+          assert m["card_count"] == len(post["cards"]), (m["card_count"], len(post["cards"]))
+          for mc, pc in zip(m["cards"], post["cards"]):
+              assert mc["text"] == pc["text"], (mc["text"], pc["text"])
+          print("OK: manifest card text matches aesthetic_post.json")
+          PY
+
+      - name: Aesthetic --check-caption checks against card text, not the caption itself
+        run: |
+          rm -rf /tmp/ae_cap_good /tmp/ae_cap_bad
+          python3 platforms/xiaohongshu/adapter.py \
+            --aesthetic-json tests/fixtures/aesthetic/good_post.json \
+            --out-dir /tmp/ae_cap_good --no-render --check-caption
+          if python3 platforms/xiaohongshu/adapter.py \
+            --aesthetic-json tests/fixtures/aesthetic/caption_invents_number.json \
+            --out-dir /tmp/ae_cap_bad --no-render --check-caption; then
+            echo "invented-number caption unexpectedly passed --check-caption on the aesthetic path"
+            exit 1
+          fi
 
       - name: gen_image --dry-run makes no API call and writes a manifest (offline, no cost)
         run: |

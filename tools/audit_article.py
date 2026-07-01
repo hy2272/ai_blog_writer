@@ -132,6 +132,9 @@ def main(argv=None):
     ap.add_argument("--banned-phrases",
                     help="optional JSON blacklist of 翻译腔/AI-味 phrases "
                          "(common/banned_phrases.json), passed through to citation_audit")
+    ap.add_argument("--banned-phrases-scope", choices=("body", "all"), default="body",
+                    help="banned-phrase scan scope, passed through to citation_audit "
+                         "(default 'body' skips the references block)")
     ap.add_argument("--strict", action="store_true")
     args = ap.parse_args(argv)
 
@@ -179,7 +182,8 @@ def main(argv=None):
         if args.source_authority:
             cmd += ["--source-authority", args.source_authority]
         if args.banned_phrases:
-            cmd += ["--banned-phrases", args.banned_phrases]
+            cmd += ["--banned-phrases", args.banned_phrases,
+                    "--banned-phrases-scope", args.banned_phrases_scope]
         if args.strict:
             cmd.append("--strict")
         failures += 1 if run(cmd) else 0
@@ -207,7 +211,8 @@ def main(argv=None):
         if args.source_authority:
             cmd += ["--source-authority", args.source_authority]
         if args.banned_phrases:
-            cmd += ["--banned-phrases", args.banned_phrases]
+            cmd += ["--banned-phrases", args.banned_phrases,
+                    "--banned-phrases-scope", args.banned_phrases_scope]
         if args.strict:
             cmd.append("--strict")
         failures += 1 if run(cmd) else 0
