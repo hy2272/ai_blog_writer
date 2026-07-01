@@ -10,6 +10,17 @@ Read `CLAUDE.md`, `.claude/runtime.md`, `common/style_patterns.md` before dispat
 `articles/article_<slug>/STATE.md` is the resumable source of truth. Before any stage,
 read it; after any stage, update it. Never redo a stage already marked done.
 
+## How S1/S3 stages run: a shell + a mode-skill
+The `scout` (S1) and `writer` (S3) agents are **mode-agnostic shells** — they carry no fixed
+workflow. When you dispatch one, you set the `mode` AND name the **mode-skill** it must read and
+follow (its workflow + output contract live there, not in the agent). Name the exact path so the
+choice is deterministic — never rely on the agent to infer the mode:
+- S1 factual → `.claude/skills/tech-news-scout/SKILL.md`; aesthetic → `.claude/skills/aesthetic-scout/SKILL.md`
+- S3 factual → `.claude/skills/tech-news-writing/SKILL.md`; aesthetic → `.claude/skills/aesthetic-writing/SKILL.md`
+Adding a content track = add its scout/writing skills + an oracle row in `run_oracle.py`; the shells
+and this playbook do not change. (Later stages — editorial, humanizer, review, output — are single
+agents shared across tracks; only S1/S3 are "different 工种" that split by skill.)
+
 ## Stage loop
 
 **S0 — topic + decompose (you do this, no sub-agent).**
@@ -22,11 +33,12 @@ STATE.md before anything else; it is a first-class field, never inferred mid-run
 - **`factual_ai_news`** (`fact_gates: true`) — AI hot-topic explainer. Runs the FULL chain
   below: research → contract → grounding → fact-check → citation audit → source authority.
 - **`aesthetic_lifestyle`** (`fact_gates: false`) — 生活美学 / 治愈系 / 诗意 card post. The
-  fact machine is a category error here (poetry has no `[Sn]` claims), so **SKIP S1 research,
-  the grounding gates, S3 fact-check, and S4 citation audit**. Keep editorial (lite), the
-  **`aesthetic-writer`** (spawn 3 variants + curate — NOT the factual `writer`; see
-  `/write-aesthetic-post`), the humanizer, and taste review. The oracle SHRINKS to
-  `tools/aesthetic_audit.py` (破折号 / card length / banned
+  fact machine is a category error here (poetry has no `[Sn]` claims), so **SKIP the grounding
+  gates, S3 fact-check, and S4 citation audit**. S1 still runs, but the `scout` follows the
+  `aesthetic-scout` skill (a `mood_pack.json`, no web) instead of researching. S3 dispatches the
+  `writer` shell with the `aesthetic-writing` skill **×3 variants + curate** (independent variants
+  are this track's diversity knob). Keep editorial (lite), the humanizer, S5.5 polish, and taste
+  review. The oracle SHRINKS to `tools/aesthetic_audit.py` (破折号 / card length / banned
   phrases / 「」 closure / 0X-0N numbering / overline / **quote verification**). Enter via
   `/write-aesthetic-post`; the runbook is `common/behavior_notes/aesthetic-track.md`.
 - **`mixed_explainer`** — RESERVED; not implemented. It needs a paragraph-level claim
@@ -38,10 +50,12 @@ STATE.md before anything else; it is a first-class field, never inferred mid-run
 The stages below (S1–S7) are the factual-track chain. For the aesthetic track, follow the
 skip list above and jump to the aesthetic runbook.
 
-**S1 — research.** Dispatch `research`. It returns `source_pack.json` (dated sources)
-+ a research brief. ⏸ **HUMAN GATE**: present the angle + the 5-8 strongest sources;
-ask the human to approve the angle and confirm sources are fresh enough. Do not proceed
-without approval. Log dropped angles in DECISIONS.md.
+**S1 — scout.** Dispatch `scout` with the track mode + the mode-scout skill path (see "How
+S1/S3 stages run" above). Factual returns `source_pack.json` (dated sources) + a research brief;
+aesthetic returns `mood_pack.json` (no web). ⏸ **HUMAN GATE**: factual — present the angle + the
+5-8 strongest sources; ask the human to approve the angle and confirm sources are fresh enough.
+Aesthetic — confirm the theme/mood/arc reads right. Do not proceed without approval. Log dropped
+angles in DECISIONS.md.
 
 **S2 — editorial.** Dispatch `editorial`. For each section node it writes
 `contracts/sec<k>_contract.md` + a machine-readable `contracts/sec<k>_contract.json`
@@ -56,8 +70,9 @@ per-item verdict + runs `grounding_gate.py` (PASS/FAIL). FAIL → back to `edito
 add a source or cut the unsupported point. This catches an angle that drifted beyond
 what research found — the gap citation_audit cannot see.
 
-**S3 — write → fact-check → fix (per section).** For each section, dispatch `writer`
-first. Once `sections/sec<k>_draft.md` exists, dispatch `fact-checker` against that exact
+**S3 — write → fact-check → fix (per section).** For each section, dispatch the `writer`
+shell naming the mode-writing skill (factual → `tech-news-writing`; aesthetic → `aesthetic-writing`
+×3 variants + curate). Once `sections/sec<k>_draft.md` exists, dispatch `fact-checker` against that exact
 draft. It writes `sections/sec<k>_factcheck.json` and runs `tools/factcheck_gate.py` on it
 (exit 1 on ANY non-SUPPORTED claim; FAILs closed on an empty verdict). The gate exit — not
 the prose — is what you gate on: FAIL → send the findings back to `writer` for a targeted
@@ -118,7 +133,9 @@ At a natural stopping point (a gate cleared, the human says stop), ask whether t
 generate a handoff doc. Do not auto-generate; do not nag mid-stage.
 
 ## Expected completion strings (gate on these exact strings)
-- research: `RESEARCH COMPLETE — source_pack.json + brief written`
+- scout (factual): `RESEARCH COMPLETE — source_pack.json + brief written`
+- scout (aesthetic): `MOOD PACK COMPLETE — mood_pack.json written`
+- writer (aesthetic variant): `AESTHETIC VARIANT <n> DRAFTED — aesthetic_variant_<n>.json written`
 - editorial: `CONTRACTS COMPLETE — <n> section contracts written`
 - grounding-checker: `GROUNDING <stage>: PASS` or `GROUNDING <stage>: FAIL — <n> ungrounded`
 - writer: `SECTION <k> DRAFTED — sec<k>_draft.md written`
@@ -165,14 +182,14 @@ here — keep them intact:
 - **Error compounding** → every section is independently verified (fact-checker +
   citation-audit) before it can feed the assembled draft. A bad section cannot silently
   propagate.
-- **Cost blowup** → research/fact-check fan-out is bounded to the 3-5 section nodes; do
+- **Cost blowup** → scout/fact-check fan-out is bounded to the 3-5 section nodes; do
   not spawn open-ended agent swarms. If a stage needs > 2 retries, escalate, don't respawn.
 
-Honest scope note: only **research** (open-ended concurrent exploration) and
+Honest scope note: only the factual **scout** (open-ended concurrent exploration) and
 **fact-check** (adversarial independent eval) genuinely need sub-agents. The writing
-stages are a linear workflow; they are sub-agents here only for uniformity and isolation,
-not because the task demands it. A lighter build could run the main chain inline and
-fan out only at S1/S3.
+stages are a linear workflow; they are shells here for uniformity, isolation, and the
+mode-skill split, not because the task demands a sub-agent. A lighter build could run the
+main chain inline and fan out only at S1/S3.
 
 ## Skills you can invoke (user-invoked, not auto-loaded)
 - `/new-article <slug>` — scaffold a per-article workspace.

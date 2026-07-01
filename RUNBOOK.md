@@ -11,8 +11,9 @@ The step-by-step. Conventions live in `CLAUDE.md`; the stage logic in
 
 ## B-aesthetic. The aesthetic track (non-factual)
 No fact machine — poetry has no `[Sn]` claims, so citation / grounding / fact-check are a
-category error and are skipped. Flow: editorial-lite → **3 independent writer variants →
-curate/merge** → verify only a quoted film line → humanize → `aesthetic_post.json` →
+category error and are skipped. Flow: scout (`aesthetic-scout` skill → `mood_pack.json`, no web)
+→ editorial-lite → **3 independent `writer` variants (`aesthetic-writing` skill) → curate/merge**
+→ verify only a quoted film line → humanize → S5.5 Gemini polish (high temp) → `aesthetic_post.json` →
 `tools/aesthetic_audit.py` (HARD gate: 破折号 / card length / banned phrases / 「」 closure /
 0X-0N numbering / overline / quote verification) → `adapter.py --style photo-triptych`.
 See `common/behavior_notes/aesthetic-track.md`.
@@ -21,13 +22,14 @@ See `common/behavior_notes/aesthetic-track.md`.
 | Stage | Agent | Output | Gate? |
 |---|---|---|---|
 | S0 topic + decompose | you (main) | section node list in STATE.md | — |
-| S1 research | research | `source_pack.json` + brief (English) | ⏸ human approves angle |
+| S1 scout | scout (`tech-news-scout` skill) | `source_pack.json` + brief (English) | ⏸ human approves angle |
 | S2 editorial | editorial | per-section contracts (Chinese) | (⏸ if complex) |
 | S2→3 grounding 1→2 | grounding-checker | outline grounded in sources | ⏸ PASS to advance |
-| S3 write → fact-check → fix | writer, then fact-checker | section draft + factcheck | — |
+| S3 write → fact-check → fix | writer (`tech-news-writing` skill), then fact-checker | section draft + factcheck | — |
 | S3→4 grounding 2→3 | grounding-checker | draft grounded in outline | ⏸ PASS to advance |
 | S4 citation audit | citation-auditor | audit verdict | ⏸ HARD: PASS to advance |
 | S5 humanize | humanizer | de-flavored draft (audit re-run) | — |
+| S5.5 Gemini polish | you (`gemini_polish.py`) | polished draft + oracle-checked diff | ⏸ human picks in diff at S6 |
 | S6 editorial review | editorial-reviewer | BLOCKER/WARN/NOTE | you decide → fixer |
 | S7 output | output | `final.md` / `final.html` | article audit green |
 
