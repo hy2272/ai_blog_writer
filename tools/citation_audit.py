@@ -50,6 +50,12 @@ from urllib.parse import urlparse
 
 
 CITE_RE = re.compile(r"\[(S\d+(?:\s*,\s*S\d+)*)\]")
+# A heading that starts the references/sources block. The banned-phrase scan stops here by
+# default: a source's OWN title may legitimately contain 打造/赋能 etc., and the article
+# body is not "AI 味" because it quoted a real headline. Body prose is what we lint.
+REF_HEADING_RE = re.compile(
+    r"^\s{0,3}#{1,6}\s*(references|参考|参考来源|参考资料|来源|资料来源|sources|source list)\s*$",
+    re.IGNORECASE | re.MULTILINE)
 # Sentence split must be CJK-aware: Chinese terminators (。！？；) are NOT followed by a
 # space, so requiring trailing whitespace (the Latin rule) would merge a whole Chinese
 # paragraph into one "sentence" and neuter the uncited-claim check. Split AFTER a CJK
@@ -274,12 +280,23 @@ def check_source_authority(used_ids, by_id, authority):
     return out
 
 
-def check_banned_phrases(text, banned):
+def strip_references(text):
+    """Drop everything from the first References/参考来源 heading onward. Used to scope the
+    banned-phrase scan to body prose so a cited source's title can't red the article."""
+    m = REF_HEADING_RE.search(text)
+    return text[:m.start()] if m else text
+
+
+def check_banned_phrases(text, banned, scope="body"):
     """A phrase from the shared blacklist appears in the draft. Naive substring match
     (case-insensitive for Latin); level comes from the data file. Code fences/comments are
-    stripped first so a phrase quoted inside an example block does not fire."""
+    stripped first so a phrase quoted inside an example block does not fire. scope="body"
+    (default) also drops the references/sources block so a cited source's title does not
+    trip the lint; scope="all" scans the whole document."""
     out = []
     body = strip_code(text)
+    if scope == "body":
+        body = strip_references(body)
     low = body.lower()
     for entry in banned.get("phrases", []):
         phrase = entry.get("phrase")
@@ -310,6 +327,10 @@ def main(argv=None):
     ap.add_argument("--banned-phrases",
                     help="optional JSON blacklist of 翻译腔/AI-味 phrases "
                          "(common/banned_phrases.json); FAIL-level hit -> FAIL, WARN-level -> WARN")
+    ap.add_argument("--banned-phrases-scope", choices=("body", "all"), default="body",
+                    help="where to scan for banned phrases: 'body' (default) skips the "
+                         "references/sources block so a cited source's title can't trip the "
+                         "lint; 'all' scans the whole document")
     ap.add_argument("--strict", action="store_true", help="promote WARN findings to failures")
     args = ap.parse_args(argv)
 
@@ -343,7 +364,8 @@ def main(argv=None):
     if args.source_authority:
         findings += check_source_authority(used_ids, by_id, load_json(args.source_authority))
     if args.banned_phrases:
-        findings += check_banned_phrases(draft, load_json(args.banned_phrases))
+        findings += check_banned_phrases(draft, load_json(args.banned_phrases),
+                                         scope=args.banned_phrases_scope)
 
     fails = [f for f in findings if f.level == "FAIL"]
     warns = [f for f in findings if f.level == "WARN"]
