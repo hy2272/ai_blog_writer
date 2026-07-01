@@ -297,12 +297,36 @@ jobs:
       - name: Aesthetic audit — bad posts fail (dash / numbering / quote / overline / provenance)
         run: |
           for f in bad_em_dash bad_numbering bad_unverified_quote bad_ai_overline \
-                   bad_quote_no_provenance bad_quote_card_no_record bad_embedded_quote_no_record; do
+                   bad_quote_no_provenance bad_quote_card_no_record bad_embedded_quote_no_record \
+                   bad_backdoor_switch; do
             if python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/$f.json; then
               echo "aesthetic $f.json unexpectedly passed"
               exit 1
             fi
           done
+
+      - name: Quote-verification exemption is CLI-only, not a post-JSON backdoor
+        run: |
+          # A writer setting quote_verification_required:false in the data must NOT bypass —
+          # it still FAILs (and the backdoor attempt is flagged). The exemption is CLI-only.
+          if python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/bad_backdoor_switch.json; then
+            echo "post-JSON quote_verification_required:false unexpectedly bypassed the gate"
+            exit 1
+          fi
+          # The runner (not the data) may relax the check: --allow-unverified-quotes downgrades
+          # the quote findings to WARN, so a no-provenance quote then PASSes.
+          python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/bad_quote_no_provenance.json \
+            --allow-unverified-quotes
+
+      - name: Card-rhythm warns on content-word clustering but exempts function words
+        run: |
+          # 「光」on 5 of 6 cards is real 氛围 collapse -> WARN -> FAIL under --strict.
+          if python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/warn_rhythm_content.json --strict; then
+            echo "content-word clustering unexpectedly passed --strict"
+            exit 1
+          fi
+          # 「我」on 5 of 6 is the natural diary voice, not clustering -> exempt -> PASS.
+          python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/rhythm_stopword_ok.json --strict
 
       - name: Banned-phrase scan skips the References block by default; --scope all catches it
         run: |

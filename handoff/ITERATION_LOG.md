@@ -47,6 +47,19 @@ carry the detail.
   (c) `aesthetic_audit` docstring example + a woven-in attributed quote (a card naming 《…》
   with a 「…」 quote but no `quote:true`) now also require a verified record. Fixtures:
   `caption_invents_number`, `bad_embedded_quote_no_record`.
+- **Pre-merge review fixes (round 4 on #22):** the reviewer approved the merge and flagged the
+  quote switch as a backdoor to the hole just closed. (a) P0 — `quote_verification_required` is
+  no longer read from the post JSON (the verified party could set it `false` to skip its own
+  check, same class as a self-asserted `verified:true`). The exemption is now the CLI flag
+  `--allow-unverified-quotes` (mirrors `grounding_gate --allow-empty`: relief lives with whoever
+  RUNS the gate); a data-side `quote_verification_required:false` is IGNORED and separately
+  WARN'd. (b) card-rhythm now exempts function words / pronouns (我的了是在有…) so the clustering
+  WARN fires only on CONTENT-word collapse (光/电影 on most cards), not the natural first-person
+  diary voice — kills the permanently-lit yellow light. (c) `_quote_record_for` prefers an EXACT
+  (normalized-equal) record before falling back to substring, so a short quote that is a substring
+  of another maps to the right record (no cross-attributing provenance). card-length 32 left as-is
+  (reviewer said observe first, don't retune). Fixtures: `bad_backdoor_switch` (FAIL + backdoor
+  WARN), `warn_rhythm_content` (--strict FAIL), `rhythm_stopword_ok` (我 on 5/6 --strict PASS).
 - **What:** turns the two reviewers' converging asks into one PR. (1) `tools/aesthetic_audit.py`
   — the aesthetic track's own oracle (2nd port of the citation_audit *idea*): 破折号, card
   length, banned phrases, 「」 closure, 0X-0N card numbering, overline (no AI), and the residual

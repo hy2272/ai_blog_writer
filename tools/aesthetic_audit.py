@@ -29,7 +29,10 @@ What it checks (each independently reported; any FAIL -> non-zero exit):
                         (`verified_source` URL or `verified_by`). `verified: true` alone is
                         self-certifying — the aesthetic version of the green-dashboard trap —
                         so it FAILs without provenance, mirroring the news track's dated-URL
-                        discipline. A free paraphrase with no attribution is fine.
+                        discipline. A free paraphrase with no attribution is fine. The check is
+                        relaxed only via --allow-unverified-quotes (a CLI flag, like
+                        grounding_gate's --allow-empty) — never a field in the post JSON, so the
+                        writer cannot disable its own verification.
   9. card-rhythm        adjacent cards opening on the same character, or one CJK char
                         recurring across most cards -> WARN (氛围 collapses on repetition;
                         style_patterns "don't cluster the same word", now machine-checked)
@@ -78,6 +81,11 @@ CLOSE_QUOTE = "」"
 # is the safe direction (unlike the body, where "AI" is a normal topic word).
 AI_RE = re.compile(r"AI|AIGC|人工智能|生成式|智能生成|AI\s*生成|AI\s*制作", re.IGNORECASE)
 CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+# Function words / pronouns are the WRONG target for the clustering check: 我 on 5 of 6 cards
+# is normal for a 治愈系日记体 post (the first person IS the voice), so warning on it would be
+# a permanently-lit yellow light nobody reads. Only CONTENT-word clustering (光 / 电影 on most
+# cards) signals real 氛围 collapse. Exempt the high-frequency structural chars.
+RHYTHM_STOPWORDS = set("我你他她它的了是在有也就都不一这那和与之很会要把被让给到又还只能着过去来上下")
 
 
 class Finding:
@@ -241,14 +249,25 @@ def _embeds_attributed_quote(card):
     return bool(WORK_TITLE_RE.search(text) and INLINE_QUOTE_RE.search(text))
 
 
+def _norm_quote(text):
+    return (text or "").strip().strip(OPEN_QUOTE).strip(CLOSE_QUOTE).strip()
+
+
 def _quote_record_for(card_text_stripped, quotes):
-    """Find a quotes[] record whose text overlaps this card (either contains the other)."""
-    needle = card_text_stripped.strip().strip(OPEN_QUOTE).strip(CLOSE_QUOTE).strip()
-    for q in quotes:
-        if not isinstance(q, dict):
-            continue
-        qt = (q.get("text") or "").strip().strip(OPEN_QUOTE).strip(CLOSE_QUOTE).strip()
-        if qt and needle and (qt in needle or needle in qt):
+    """Find the quotes[] record for this card. Prefer an EXACT (normalized-equal) match so a
+    short quote that is a substring of another ("我很好" vs "你好吗？我很好。") maps to the right
+    record, not merely the first overlapping one — a mis-match would attribute record A's
+    provenance to card B. Fall back to substring only when no exact match exists."""
+    needle = _norm_quote(card_text_stripped)
+    if not needle:
+        return None
+    records = [q for q in quotes if isinstance(q, dict)]
+    for q in records:  # exact first
+        if _norm_quote(q.get("text")) == needle:
+            return q
+    for q in records:  # then containment either way
+        qt = _norm_quote(q.get("text"))
+        if qt and (qt in needle or needle in qt):
             return q
     return None
 
@@ -257,12 +276,25 @@ def check_quote_verification(post):
     """The aesthetic track's shrunk oracle. Two layers, both closing the "marked-verified !=
     actually-verified" gap:
       (a) every quotes[] record that names a work/attribution must be verified WITH provenance;
-      (b) every quote-CARD (quote:true, or a whole-card 「…」) must map to such a record, so an
-          agent cannot ship a bare `{"text":"「…」","quote":true}` with no verification trail.
-    A free paraphrase with no attribution and no quote flag is fine — nothing to verify."""
+      (b) every quote-CARD (quote:true, a whole-card 「…」, or a woven-in 《…》+「…」) must map to
+          such a record, so an agent cannot ship a bare `{"text":"「…」","quote":true}` with no
+          verification trail.
+    A free paraphrase with no attribution and no quote flag is fine — nothing to verify.
+
+    Findings are emitted at FAIL level; the CALLER downgrades them to WARN when the runner
+    passes --allow-unverified-quotes. The exemption lives on the CLI (with whoever RUNS the
+    gate), NOT in the post JSON — otherwise the writing agent could set
+    `quote_verification_required:false` in its own output to walk past the check (the same
+    backdoor as a self-asserted verified:true). A data field attempting to turn it off is
+    flagged here as a separate WARN regardless."""
     out = []
     quotes = post.get("quotes", []) or []
-    require = post.get("quote_verification_required", True)
+
+    if post.get("quote_verification_required") is False:
+        out.append(Finding("WARN", "quote-verification",
+                           "post JSON sets quote_verification_required:false — this switch is "
+                           "IGNORED (exemption is the CLI flag --allow-unverified-quotes, not a "
+                           "data field the writer controls). Remove it, or run the gate with the flag"))
 
     for i, q in enumerate(quotes, 1):
         if not isinstance(q, dict):
@@ -292,11 +324,18 @@ def check_quote_verification(post):
                                f"card {pos} is a quote card but has no matching record in `quotes` — "
                                f"register the line (with a source) so it can be verified"))
             continue
-        if require and not (rec.get("verified") and _has_provenance(rec)):
+        if not (rec.get("verified") and _has_provenance(rec)):
             out.append(Finding("FAIL", "quote-verification",
                                f"card {pos}'s quote ({_quote_label(rec)!r}) must be verified with "
-                               f"provenance (quote_verification_required is on for this track)"))
+                               f"provenance (verified + verified_source/verified_by)"))
     return out
+
+
+def _downgrade(findings, check, from_level="FAIL", to_level="WARN"):
+    for f in findings:
+        if f.check == check and f.level == from_level:
+            f.level = to_level
+    return findings
 
 
 def check_card_rhythm(cards):
@@ -310,12 +349,15 @@ def check_card_rhythm(cards):
         t = card_text(card).strip().lstrip(OPEN_QUOTE)
         firsts.append(t[0] if t else "")
     for i in range(1, len(firsts)):
-        if firsts[i] and firsts[i] == firsts[i - 1]:
+        # Skip a shared stopword opening (两张都以「我」开头 is natural in a diary voice).
+        if firsts[i] and firsts[i] == firsts[i - 1] and firsts[i] not in RHYTHM_STOPWORDS:
             out.append(Finding("WARN", "card-rhythm",
                                f"cards {i} and {i + 1} both open on 「{firsts[i]}」— vary the opening"))
     counts = {}
     for card in cards:
         for ch in set(CJK_RE.findall(card_text(card))):  # per-card presence, not raw frequency
+            if ch in RHYTHM_STOPWORDS:
+                continue  # function words / pronouns are not 氛围-flattening clustering
             counts[ch] = counts.get(ch, 0) + 1
     n = len(cards)
     if n >= 4:
@@ -345,6 +387,12 @@ def main(argv=None):
     ap.add_argument("--skip-banned", action="store_true", help="skip the banned-phrase check")
     ap.add_argument("--max-card-chars", type=int, default=32,
                     help="warn when a single card is longer than this (default 32; this 栏目 is 一句一卡)")
+    ap.add_argument("--allow-unverified-quotes", action="store_true",
+                    help="relax the requirement that every quote card map to a verified record. "
+                         "The exemption lives on the CLI (with whoever RUNS the gate), never in "
+                         "the post JSON — a writer must not be able to disable its own check. "
+                         "(Attributed-quote records still need provenance; quote cards still need "
+                         "a matching record — this only drops the verified-with-provenance demand.)")
     ap.add_argument("--strict", action="store_true", help="promote WARN findings to failures")
     args = ap.parse_args(argv)
 
@@ -366,7 +414,11 @@ def main(argv=None):
     findings += check_quote_placement(cards)
     findings += check_card_numbering(cards)
     findings += check_overline(post)
-    findings += check_quote_verification(post)
+    quote_findings = check_quote_verification(post)
+    if args.allow_unverified_quotes:
+        # The RUNNER accepts unverified quotes — findings stay visible but stop blocking.
+        _downgrade(quote_findings, "quote-verification")
+    findings += quote_findings
     findings += check_card_rhythm(cards)
     findings += check_hashtags(post)
 

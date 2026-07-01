@@ -20,6 +20,10 @@ a SECOND track alongside the default AI-news track. Pick it when the brief is "�
    green-dashboard trap (marked-verified ≠ actually-verified) — `aesthetic_audit.py` FAILs it,
    the same discipline as the news track's dated-URL rule. And every quote CARD (`quote:true`
    or a whole-card 「…」) must map to such a record, so a quote can't ship unregistered.
+   **Do not put `quote_verification_required` in the post JSON to switch this off** — the
+   writer must not hold the key to its own check. The only exemption is the CLI flag
+   `python3 tools/aesthetic_audit.py … --allow-unverified-quotes`, held by whoever RUNS the
+   gate (same shape as `grounding_gate --allow-empty`); a data-side `false` is ignored + WARN'd.
 3. **Keep the editorial / writer / humanizer / taste passes.** Concept + structure, the prose
    itself, 去 AI 味, and taste/flow review are all still valuable — only the factual gates go.
 4. **"Temperature" is not a subagent knob in this harness.** The orchestrator cannot set a
