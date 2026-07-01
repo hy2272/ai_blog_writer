@@ -277,7 +277,11 @@ def build_cards_from_aesthetic_post(post: dict) -> tuple[str, list[Card], dict, 
 
     tags = list(post.get("hashtags") or [])
     caption_override = post.get("caption") or ""
-    body_text = "\n".join(body_texts + [caption_override])
+    # body_text is the "verified body" that --check-caption checks the caption's numbers
+    # against. It must be the CARD text only — NOT the caption itself, or the caption would
+    # verify against itself and any invented number would pass (same self-approval bug the
+    # factual track avoids by checking the caption against the article body, not the caption).
+    body_text = "\n".join(body_texts)
     return theme, cards, meta, tags, caption_override, body_text
 
 
