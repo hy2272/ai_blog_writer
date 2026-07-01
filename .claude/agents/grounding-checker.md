@@ -47,6 +47,9 @@ against the upstream, and never wave something through.
      --allowed-source-ids <S1,S2,…> \
      --allowed-outline-ids "$(python3 tools/outline_ids.py outline.json)"
    ```
+   The gate FAILs closed on an empty item list (a check that traced nothing is not a pass);
+   emit a verdict item for every downstream point, and only pass `--allow-empty` for a hop
+   that genuinely has no downstream item to trace.
 5. On FAIL, name each ungrounded item so the upstream agent (editorial / writer) can fix
    it — either add a supporting source, or cut the unsupported point.
 6. Write/update `stage_results/S2-grounding-1to2.json` for 1→2 or
