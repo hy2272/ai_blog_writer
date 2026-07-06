@@ -2,7 +2,9 @@
 description: (Re-)run a single section's write → fact-check → grounding → citation-audit loop.
 ---
 
-Run the S3-S4 loop for ONE section without redoing the others.
+Run the S3-S4 loop for ONE section without redoing the others. (This is the sequential
+single-section path — a full `/write-article` run fans ALL sections out in parallel
+waves; see `.claude/orchestrator.md` S3.)
 
 Section number: $ARGUMENTS
 
@@ -17,3 +19,6 @@ Steps (orchestrator):
 7. Update STATE.md; each agent writes its own per-stage file (`sec<k>_writer.json`,
    `sec<k>_factcheck.json`, `sec<k>_grounding.json`, `sec<k>_audit.json`). Run
    `python3 tools/status.py articles/article_<slug>` for the section × stage matrix.
+8. Journal as you go (`tools/journal.py append …`): a `dispatch` event before each
+   agent, a `result` when it returns, a `gate` per oracle exit — same ledger discipline
+   as the full pipeline, so resume and the step budget stay truthful.

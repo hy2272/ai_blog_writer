@@ -1,0 +1,8 @@
+{"ts":"2026-07-06T10:00:00","event":"stage","stage":"S3","status":"start","note":"parallel fan-out, 2 sections"}
+{"ts":"2026-07-06T10:00:01","event":"dispatch","stage":"S3-writer","section":1,"agent":"writer"}
+{"ts":"2026-07-06T10:00:01","event":"dispatch","stage":"S3-writer","section":2,"agent":"writer"}
+{"ts":"2026-07-06T10:04:12","event":"result","stage":"S3-writer","section":1,"agent":"writer","status":"pass","tokens":{"total":48213},"cost_usd":0.31}
+{"ts":"2026-07-06T10:05:02","event":"result","stage":"S3-writer","section":2,"agent":"writer","status":"pass","tokens":{"total":21930},"cost_usd":0.14}
+not a json line — the loader must skip this, not crash
+{"ts":"2026-07-06T10:06:00","event":"gate","stage":"S4-citation-audit","section":1,"gate":"citation_audit","exit_code":0,"status":"pass"}
+{"ts":"2026-07-06T10:07:00","event":"result","stage":"S1-research","agent":"research","status":"pass","tokens":{"total":80000},"cost_usd":0.52}

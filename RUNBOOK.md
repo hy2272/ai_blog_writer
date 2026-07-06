@@ -24,16 +24,28 @@ See `common/behavior_notes/aesthetic-track.md`.
 | S1 research | research | `source_pack.json` + brief (English) | ⏸ human approves angle |
 | S2 editorial | editorial | per-section contracts (Chinese) | (⏸ if complex) |
 | S2→3 grounding 1→2 | grounding-checker | outline grounded in sources | ⏸ PASS to advance |
-| S3 write → fact-check → fix | writer, then fact-checker | section draft + factcheck | — |
-| S3→4 grounding 2→3 | grounding-checker | draft grounded in outline | ⏸ PASS to advance |
-| S4 citation audit | citation-auditor | audit verdict | ⏸ HARD: PASS to advance |
+| S3 write → fact-check → fix | writer, then fact-checker — **all sections in parallel waves** | section drafts + factchecks | — |
+| S3→4 grounding 2→3 | grounding-checker (per section, inside the wave) | draft grounded in outline | ⏸ PASS to advance |
+| S4 citation audit | citation-auditor (per section, inside the wave) | audit verdict | ⏸ HARD: every `sec<k>_audit.json` = pass |
 | S5 humanize | humanizer | de-flavored draft (audit re-run) | — |
-| S6 editorial review | editorial-reviewer | BLOCKER/WARN/NOTE | you decide → fixer |
+| S5.9 findings triage | findings-triage (optional; skip when zero findings) | deduped, source-verified worklist | — |
+| S6 editorial review | editorial-reviewer ×2-3 panel, majority merge | BLOCKER/WARN/NOTE | you decide → fixer |
 | S7 output | output | `final.md` / `final.html` | article audit green |
 
+S3 concurrency: sections have disjoint files and independent contracts, so the
+orchestrator dispatches every unconverged section's next step in one parallel message
+(wave), looping until every section's `sec<k>_audit.json` says pass. Within one section
+the chain stays sequential; the per-section step budget (max 3 iterations) still applies.
+Every dispatch/result/gate lands in `run_journal.jsonl` (`tools/journal.py`), which is
+also where token/cost totals come from (`/status` shows the cost column).
+
 ## C. Resuming a paused article
-Read `articles/article_<slug>/STATE.md`; it records the last done stage and per-section
-verdicts. Re-enter at the first not-done stage. `/status` prints the table.
+Reconcile three layers, in order: per-stage result JSONs (what is GREEN) →
+`run_journal.jsonl` (what RAN: dispatch counts, step budget, costs, human decisions) →
+`STATE.md` (the human-readable summary). If STATE.md lags the journal, backfill it from
+the journal + result files, then re-enter at the first not-done stage. `/status` prints
+the matrix (+ cost column); `python3 tools/journal.py summary <dir>` prints the ledger
+rollup.
 
 ## D. Re-running one section
 `/write-section <k>` runs only that section's write → fact-check → grounding → audit loop. Use it
