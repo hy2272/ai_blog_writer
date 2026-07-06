@@ -67,11 +67,12 @@ yet) — do not use it; pick `factual_ai_news` or `aesthetic_lifestyle`.
 | S1 research | todo | ⏸ human angle gate |
 | S2 editorial | todo | |
 | S2→3 grounding (1→2) | todo | ⏸ outline grounded in sources |
-| S3 write → fact-check → fix | todo | |
-| S3→4 grounding (2→3) | todo | ⏸ draft grounded in outline |
-| S4 citation audit | todo | ⏸ HARD gate |
+| S3 write → fact-check → fix | todo | all sections in parallel waves |
+| S3→4 grounding (2→3) | todo | ⏸ draft grounded in outline (per section) |
+| S4 citation audit | todo | ⏸ HARD gate — every sec<k>_audit.json pass |
 | S5 humanize | todo | |
-| S6 editorial review | todo | |
+| S5.9 findings triage | todo | optional 归口 — skip if zero findings |
+| S6 editorial review | todo | 2-3 reviewer panel, majority merge |
 | S7 output | todo | |
 
 ## Open items
@@ -80,6 +81,11 @@ yet) — do not use it; pick `factual_ai_news` or `aesthetic_lifestyle`.
 
 ## Machine-readable state
 - Article-level stages write one file per stage under `stage_results/`.
-- Section stages write `sections/sec<k>_result.json`.
-- Treat this Markdown file as the human-readable summary; when there is disagreement,
-  inspect the JSON result files and the concrete artifacts before resuming.
+- Section stages write per-stage files: `sections/sec<k>_writer.json`,
+  `sec<k>_factcheck.json`, `sec<k>_grounding.json`, `sec<k>_audit.json`.
+- The orchestrator appends every dispatch/result/gate/human decision (+ tokens/cost when
+  known) to `run_journal.jsonl` via `tools/journal.py` — the append-only run ledger.
+- Treat this Markdown file as the human-readable summary. On resume, reconcile in this
+  order: result JSONs + artifacts (what is green) → `run_journal.jsonl` (what ran:
+  budgets, costs, decisions) → this file; backfill this file from the journal when it
+  lags (see `.claude/orchestrator.md` "State you own").

@@ -72,18 +72,23 @@ flowchart TD
   S0[S0 decompose · pick topic, split into section nodes] --> S1[S1 research · live web → dated EN source pack]
   S1 -->|⏸ human approves angle| S2[S2 editorial · per-section contract]
   S2 --> G1[grounding 1→2 · outline grounded in sources?]
-  G1 --> S3[S3 write → fact-check → fix · Chinese draft, every claim cited]
+  G1 --> S3[S3 write → fact-check → fix · ALL sections in parallel waves, every claim cited]
   S3 --> G2[grounding 2→3 · draft grounded in outline?]
-  G2 --> S4[S4 citation audit · HARD gate]
+  G2 --> S4[S4 citation audit · HARD gate, per section]
   S4 --> S5[S5 humanize · 去 AI 味]
-  S5 --> S6[S6 editorial review · advisory]
+  S5 --> S59[S5.9 findings triage · dedupe + verify vs sources, optional]
+  S59 --> S6[S6 editorial review · 2-3 reviewer panel, majority merge, advisory]
   S6 -->|⏸ human sign-off| S7[S7 output · md / 小红书 .txt + cover]
   S7 -.lessons.-> NOTE[behavior_notes / style_patterns §7]
   NOTE -.next post starts better.-> S0
 ```
 
 The **orchestrator** (main Claude Code session) owns state and is the only coordinator;
-sub-agents cannot spawn sub-agents. Agent specs live in `.claude/agents/`.
+sub-agents cannot spawn sub-agents. Agent specs live in `.claude/agents/`. Every
+dispatch, gate exit, and human decision is journaled to the article's append-only
+`run_journal.jsonl` (tokens/cost included when known) — `tools/status.py` shows the
+per-section cost column, and a resumed run reconciles result JSONs → journal → STATE.md
+in that order.
 
 ## Use it
 

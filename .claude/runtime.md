@@ -34,6 +34,24 @@ Verdict ids are explicit:
   can show which original sources still back the claim, but they do not replace outline
   traceability.
 
+The run journal (append-only ledger; the ORCHESTRATOR appends, agents never do):
+```
+python3 tools/journal.py append articles/article_<slug> --event dispatch \
+  --stage S3-writer --section 2 --agent writer
+python3 tools/journal.py append articles/article_<slug> --event result \
+  --stage S3-writer --section 2 --agent writer --status pass \
+  --tokens-total 48213 --cost-usd 0.31        # usage flags only when the harness showed them
+python3 tools/journal.py append articles/article_<slug> --event gate \
+  --stage S4-citation-audit --section 2 --gate citation_audit --exit-code 0
+python3 tools/journal.py summary articles/article_<slug>   # rollup + step-budget counts
+```
+Events: `dispatch` / `result` / `gate` / `human_gate` / `stage` / `note`. Exit 2 on a
+malformed append (nothing written); `summary` is read-only, always exit 0. Stage names =
+the result-file stems, so `tools/status.py` joins journal cost onto its matrix (the
+`cost` column appears only when `run_journal.jsonl` exists). Resume order:
+result JSONs (what is green) → journal (what ran) → STATE.md (summary) — see
+`.claude/orchestrator.md` "State you own".
+
 Run the full article audit after humanizing and before output:
 ```
 python3 tools/audit_article.py articles/article_<slug> \
@@ -80,6 +98,8 @@ only for CI or environments without Chrome. The `--meta` sidecar supplies the ho
 articles/article_<slug>/
   STATE.md              resumable pipeline state (orchestrator owns)
   DECISIONS.md          audit trail: angle, dropped claims, accepted WARNs
+  run_journal.jsonl     append-only run ledger: dispatches, results, gate exits,
+                        human decisions, tokens/cost (tools/journal.py; orchestrator owns)
   source_pack.json      dated sources (research writes; everyone cites these ids)
   research_brief.md     proposed angle + strongest sources
   outline.md            section order + through-line (editorial writes)
@@ -99,7 +119,9 @@ articles/article_<slug>/
     S1-research.json            machine-readable status/findings (append new stage files, never overwrite prior stages)
     S2-editorial.json
     S5-humanize.json
-    S6-editorial-review.json
+    S5-9-findings-triage.json      deduped + source-verified worklist (findings-triage, optional)
+    S6-editorial-review-<v>.json   one per S6 panel variant (each reviewer writes its own)
+    S6-editorial-review.json       canonical panel merge by majority (the ORCHESTRATOR writes this one)
     S7-output.json
   final.md / final.html     the deliverable (output)
   assets/xhs/               default Xiaohongshu long-image post package
