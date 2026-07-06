@@ -11,6 +11,69 @@ carry the detail.
 
 ---
 
+## 2026-07-06 — coordination layer from agent-fleet v2: run journal + S3 parallel fan-out + S5.9 triage & S6 panel
+- **What:** ports the three orchestration mechanisms proven in `hy2272/agent-fleet` v2 into
+  this repo's pipeline — patterns only, no code copied; all oracle verdict logic untouched.
+  (A) **`run_journal.jsonl`** per article: append-only ledger of every dispatch / agent
+  result / gate exit / human decision / stage transition, with tokens+cost when the harness
+  surfaces them. New stdlib `tools/journal.py` (`append` validates per-event required fields,
+  exit 2 writes nothing; `summary` rolls up per stage + per-section writer-dispatch counts =
+  the step budget). Resume protocol now three layers, reconciled in order: result JSONs
+  (what is GREEN) → journal (what RAN) → STATE.md (summary, backfilled from the journal when
+  it lags). `tools/status.py` gains a journal-driven `cost` column + run-totals line; without
+  a journal its output is byte-identical to before. (B) **S3 parallel fan-out**: once every
+  S2 contract passes (+ grounding 1→2), ALL sections' write→fact-check→grounding→audit loops
+  run concurrently as waves (one parallel message dispatches each unconverged section's next
+  step; within a section the chain stays sequential; never two agents on one section per
+  wave). Convergence = every `sec<k>_audit.json` with `status:"pass"` (existence alone is
+  not green — the audit JSON is written on FAIL too). Per-section step budget (3) unchanged,
+  now durable across resumes via journal dispatch counts. Only orchestrator control flow +
+  docs changed; agent playbooks and oracles untouched. `/write-section` remains the
+  sequential single-section path. (C) **S5.9 findings triage + S6 panel**: new optional
+  `findings-triage` agent (agent-fleet triage analog) aggregates + dedupes all surviving
+  S3/S4/S5 findings/WARNs into `stage_results/S5-9-findings-triage.json`, VERIFIES each item
+  against `must_cite` + the source pack before it reaches the table, and rejects confident
+  false positives with a refutation (宁可驳回也不放行错误修改); skipped (journaled) when zero
+  findings. S6 now dispatches 2-3 independent `editorial-reviewer` variants (lens EMPHASIS,
+  not narrowed scope) each writing `S6-editorial-review-<variant>.json`; the orchestrator
+  merges by majority into the canonical `S6-editorial-review.json` (a lone BLOCKER in the
+  panel downgrades to WARN, logged in DECISIONS.md, manually escalatable). (D) **CI repair
+  (main red since #23):** the `run_oracle` workflow step captured an EXPECTED exit 3 with a
+  bare `cmd; rc=$?` — under the workflow's `bash -e` shell the step dies AT cmd, so the
+  assert never ran; main's push CI and PR #24 (which inherits main, touches no test.yml)
+  both failed with exit 3. Fixed with `rc=0; cmd || rc=$?` (condition context, `-e` exempt)
+  and hardened the two sibling `; var=$?` captures in the same step; left a NB comment so
+  the pattern isn't reintroduced. PR #24 goes green by updating its branch from main after
+  this merges.
+- **Why:** the hard-gate stack was solid but the coordination layer above it was thin — a
+  crash between an agent's return and a STATE.md update lost the run history; cost was
+  discovered after the fact (the agent-fleet 1.04M-token incident); sections ran serially
+  for no reason (disjoint files, independent contracts); and one confident reviewer/checker
+  could put a false positive on the human's desk (2 of 57 findings in the fleet run were
+  exactly that). Each fix is the fleet mechanism re-homed onto this repo's
+  orchestrator-dispatches-subagents shape.
+- **Risk:** the journal depends on orchestrator discipline (hard rule 7) — nothing enforces
+  an append the way the oracles enforce gates; token/cost fields are best-effort (recorded
+  only when the harness shows usage). Parallel waves and the S6 panel majority merge are
+  DOC-level control flow for the orchestrator LLM — statically consistent but not yet
+  exercised by a real `/write-article` run (next live run is the test). status.py now
+  imports its sibling `journal` module (script-dir import; fine for `python3 tools/status.py`,
+  matters if someone vendors the file alone). Panel majority can downgrade a lone true
+  BLOCKER — mitigated by DECISIONS.md logging + manual escalation + the S6 human gate.
+- **Verified:** static only, per repo tradition — `py_compile` on all tools; journal.py
+  smoke (3 valid events → valid JSONL with ts; gate exit 0 derives status pass; usage errors
+  exit 2 and append nothing; summary shows step-budget `sec1 1/3` + cost totals); status.py
+  on the journal fixture shows `$0.31`/`$0.14` per section, `$0.52` on S1-research, totals
+  `$0.97` with `1 malformed skipped`, and byte-identical legacy output with the journal
+  removed; new CI steps cover journal happy + error paths and the no-journal regression.
+  The CI fix was verified by full local replica: extracted ALL 39 `run:` blocks from
+  test.yml and executed each under `bash -e` from the repo root — 0 failures, including
+  the fixed run_oracle step, the gemini_polish step (which had never actually executed in
+  CI: main died before reaching it), and the three new journal/status steps. The `-e` kill
+  was first reproduced locally (exit 3, assert unreached) before fixing. NOT yet verified
+  live: a real parallel S3 run, real token/cost capture, a real triage + panel merge —
+  flagged in the handoff.
+
 ## 2026-07-01 — skeleton unification: S1/S3 become shell + mode-skill
 - **What:** S1 (`scout`) and S3 (`writer`) are now **mode-agnostic shells**; the "how to gather / how
   to write + output contract" moved into per-mode **skills** the orchestrator names by path in the

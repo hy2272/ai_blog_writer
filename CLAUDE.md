@@ -8,8 +8,9 @@ domain: writing Chinese blog articles about the latest AI hot topics.
 
 ## What this is
 A Claude Code multi-agent system that writes a verified Chinese AI-hot-topic blog
-article **one section at a time**, proving each section satisfies a written contract
-**and** passes a machine-checkable fact/citation audit before moving on.
+article **section by section** — each section must satisfy a written contract **and**
+pass a machine-checkable fact/citation audit before the article advances (the section
+loops themselves run as parallel waves at S3; the verification unit stays the section).
 
 The leverage is the same as sas2pyspark's: a **machine-checkable correctness
 criterion**. SAS migration has it for free (per-node output equality). Prose does
@@ -128,12 +129,19 @@ coordinator. Stages mirror sas2pyspark:
   word range, Given/When/Then acceptance). Contract is law.
 - **S3 write → fact-check → fix** — per section: `writer` drafts first; `fact-checker`
   verifies that exact draft against the source pack; writer fixes any unsupported claim.
+  Once all S2 contracts pass, ALL sections run this loop in parallel waves (disjoint
+  `sec<k>_*` files; convergence = every `sec<k>_audit.json` pass). Every dispatch/gate
+  lands in the append-only `run_journal.jsonl` (tokens/cost included when known).
 - **S4 citation audit (HARD gate)** — `citation_audit.py` on each section: no 裸论断,
   every `[Sn]` valid + fresh, coverage met. Fail → back to writer. (= sas fidelity-auditor.)
 - **S5 humanizer** — remove "AI 味" + self-audit against `style_patterns.md`; re-run
   `audit_article.py` so final assembly cannot drop section coverage.
-- **S6 editorial-review (advisory)** — read-only reviewer judges ONLY the axes the
-  audit can't see; emits BLOCKER/WARN/NOTE → orchestrator decides → fixer → re-verify.
+- **S5.9 findings triage (optional 归口)** — aggregate + dedupe every surviving S3/S4/S5
+  finding, verify each against `must_cite` + the source pack before it reaches the table
+  (confident false positives → reject), rank the rest for S6. (= agent-fleet triage.)
+- **S6 editorial-review panel (advisory)** — 2-3 independent read-only reviewers judge
+  ONLY the axes the audit can't see; BLOCKER/WARN by panel majority → orchestrator
+  decides → fixer → re-verify.
 - **S7 output** — assemble + emit md / html.
 - **↻ self-improvement** — a shipped "AI 味" or hallucination pattern is written back
   to `common/behavior_notes/` so the next article starts better. This compounding loop
@@ -148,14 +156,16 @@ orchestrator's playbook is `.claude/orchestrator.md` — a main-session file, ne
 dispatched as a sub-agent. Enter it via `/write-article`.
 
 ```
-you ─ orchestrator (owns state, dispatches, stops at every gate)
+you ─ orchestrator (owns state + run_journal.jsonl, dispatches, stops at every gate)
         ├─ S0  topic + decompose into section nodes          (you do this)
         ├─ S1  research ............. dated source_pack.json  →  ⏸ HUMAN approves angle
         ├─ S2  editorial ............ per-section contract
-        ├─ S3  per section:  writer → fact-checker → writer fix
-        ├─ S4  citation-auditor ..... HARD gate (citation_audit.py)
+        ├─ S3  ALL sections in parallel waves:
+        │        writer → fact-checker → writer fix → grounding 2→3 → S4 audit
+        ├─ S4  citation-auditor ..... HARD gate (citation_audit.py), per section
         ├─ S5  humanizer ............ 去 AI 味 + self-audit
-        ├─ S6  editorial-reviewer ... advisory → you decide → fixer → re-verify
+        ├─ S5.9 findings-triage ..... optional 归口: dedupe + verify findings, rank
+        ├─ S6  editorial-reviewer ×2-3 panel → majority → you decide → fixer → re-verify
         └─ S7  output ............... md / html
 ```
 
@@ -177,8 +187,11 @@ Read first, in order, when starting an article session:
 3. Smallest verifiable unit (section node, not whole article).
 4. Stage gates, orchestrator-only coordination, human owns the angle.
 5. Review is advisory; the orchestrator decides + dispatches the fixer + re-verifies.
+   (Now a 2-3 reviewer panel with majority merge — one confident judge is not a quorum.)
 6. Self-improvement loop (behavior_notes) → compounding quality.
-7. Resumable STATE.md + audit-trail DECISIONS.md.
+7. Resumable STATE.md + audit-trail DECISIONS.md + append-only `run_journal.jsonl`
+   (what ran, gate exits, tokens/cost — the agent-fleet journal pattern; STATE blind
+   spots are backfilled from it on resume).
 
 ## What this system is NOT (scope boundary)
 - Not an autonomous one-shot generator. Every article passes human gates (angle, final).

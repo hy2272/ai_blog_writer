@@ -61,16 +61,19 @@ jobs:
 
       - name: run_oracle dispatcher passes through the oracle verbatim
         run: |
+          # NB: this workflow's shell is `bash -e`, so a bare `cmd; var=$?` DIES at cmd on
+          # any non-zero exit before the assert runs (this exact step broke main after #23).
+          # Capture expected non-zero exits with `|| var=$?` — a condition context -e ignores.
           # exit-code parity: dispatcher must equal a direct oracle call (green + red)
-          python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/good_post.json >/dev/null; direct_ok=$?
-          python3 tools/run_oracle.py --mode aesthetic_lifestyle tests/fixtures/aesthetic/good_post.json >/dev/null; disp_ok=$?
+          direct_ok=0; python3 tools/aesthetic_audit.py tests/fixtures/aesthetic/good_post.json >/dev/null || direct_ok=$?
+          disp_ok=0; python3 tools/run_oracle.py --mode aesthetic_lifestyle tests/fixtures/aesthetic/good_post.json >/dev/null || disp_ok=$?
           test "$direct_ok" = "0" && test "$disp_ok" = "0" || { echo "green passthrough mismatch"; exit 1; }
           python3 tools/run_oracle.py --mode aesthetic tests/fixtures/aesthetic/bad_em_dash.json >/dev/null && { echo "bad fixture should fail"; exit 1; } || true
           # trailing oracle args are forwarded (factual needs --source-pack)
           python3 tools/run_oracle.py --mode tech_news tests/fixtures/article_good_final/sections/sec1_draft.md \
             --source-pack tests/fixtures/article_good_final/source_pack.json >/dev/null || { echo "factual passthrough failed"; exit 1; }
           # a mode whose oracle has not shipped fails honestly (exit 3), not silently
-          python3 tools/run_oracle.py --mode explainer tests/fixtures/aesthetic/good_post.json; rc=$?
+          rc=0; python3 tools/run_oracle.py --mode explainer tests/fixtures/aesthetic/good_post.json || rc=$?
           test "$rc" = "3" || { echo "explainer (no oracle) should exit 3, got $rc"; exit 1; }
 
       - name: gemini_polish offline diff catches oracle regressions (no API)
@@ -107,6 +110,46 @@ jobs:
           echo "$out" | grep -q "section stages" || { echo "missing section matrix"; exit 1; }
           # sec2 fact-check is MISATTRIBUTED -> the aggregator must derive a 'fail'
           echo "$out" | grep -q "fail" || { echo "aggregator did not surface the failing stage"; exit 1; }
+          # the fixture journal drives the cost column + run totals (malformed line skipped)
+          echo "$out" | grep -q '\$0.31' || { echo "missing sec1 journal cost"; exit 1; }
+          echo "$out" | grep -q 'recorded cost \$0.97' || { echo "missing journal totals line"; exit 1; }
+          echo "$out" | grep -q '1 malformed skipped' || { echo "malformed journal line not tolerated"; exit 1; }
+
+      - name: status.py without a journal is unchanged (no cost column)
+        run: |
+          rm -rf /tmp/status_nojournal
+          cp -r tests/fixtures/status /tmp/status_nojournal
+          rm /tmp/status_nojournal/run_journal.jsonl
+          out="$(python3 tools/status.py /tmp/status_nojournal)"
+          echo "$out"
+          echo "$out" | grep -q "cost" && { echo "cost column must not appear without a journal"; exit 1; } || true
+
+      - name: journal.py appends valid events, fails fast on bad ones, summarizes
+        run: |
+          rm -rf /tmp/journal_smoke && mkdir -p /tmp/journal_smoke
+          python3 tools/journal.py append /tmp/journal_smoke --event dispatch --stage S3-writer --section 1 --agent writer
+          python3 tools/journal.py append /tmp/journal_smoke --event result --stage S3-writer --section 1 \
+            --agent writer --status pass --tokens-total 48213 --cost-usd 0.31
+          python3 tools/journal.py append /tmp/journal_smoke --event gate --stage S4-citation-audit --section 1 \
+            --gate citation_audit --exit-code 0
+          # usage errors exit 2 and append NOTHING
+          if python3 tools/journal.py append /tmp/journal_smoke --event result --stage S3-writer; then
+            echo "result without --status unexpectedly passed"; exit 1; fi
+          if python3 tools/journal.py append /tmp/no_such_article_dir --event note --note x; then
+            echo "missing article dir unexpectedly passed"; exit 1; fi
+          python3 - <<'PY'
+          import json
+          lines = [json.loads(l) for l in open('/tmp/journal_smoke/run_journal.jsonl', encoding='utf-8')]
+          assert len(lines) == 3, f"expected 3 events, got {len(lines)}"
+          assert all('ts' in l for l in lines)
+          assert lines[1]['cost_usd'] == 0.31 and lines[1]['tokens']['total'] == 48213
+          assert lines[2]['status'] == 'pass', "gate exit 0 must derive status pass"
+          print("OK: journal lines valid")
+          PY
+          out="$(python3 tools/journal.py summary /tmp/journal_smoke)"
+          echo "$out"
+          echo "$out" | grep -q 'sec1 1/3' || { echo "summary missing step-budget count"; exit 1; }
+          echo "$out" | grep -q 'recorded cost \$0.31' || { echo "summary missing cost total"; exit 1; }
 
       - name: Positive article audit fixture passes
         run: python3 tools/audit_article.py articles/article_demo --as-of 2026-06-09
