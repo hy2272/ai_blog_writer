@@ -73,6 +73,33 @@ carry the detail.
   was first reproduced locally (exit 3, assert unreached) before fixing. NOT yet verified
   live: a real parallel S3 run, real token/cost capture, a real triage + panel merge —
   flagged in the handoff.
+
+## 2026-07-01 — skeleton unification: S1/S3 become shell + mode-skill
+- **What:** S1 (`scout`) and S3 (`writer`) are now **mode-agnostic shells**; the "how to gather / how
+  to write + output contract" moved into per-mode **skills** the orchestrator names by path in the
+  dispatch. New `.claude/skills/`: `tech-news-scout`, `aesthetic-scout` (no-web `mood_pack.json`),
+  `tech-news-writing`, `aesthetic-writing` — each two-part (workflow + output-schema) and
+  `disable-model-invocation: true` (zero context load; consumed by Read-by-path, which is
+  deterministic vs description-matching). Hollowed `writer.md` to a shell; added `scout.md` shell
+  (tool whitelist = union incl WebSearch as a *capability ceiling*, behaviour set by the skill
+  workflow — so aesthetic mode has the tool but its skill has no retrieval step). Removed
+  `research.md` + `aesthetic-writer.md` (superseded). Rewired orchestrator (S0 aesthetic bullet, S1,
+  S3, completion strings, scope note), `write-section` / `write-aesthetic-post` commands, and RUNBOOK
+  (S1 agent, S3 agent, aesthetic flow, added the S5.5 row).
+- **Why:** "one skeleton, N fillings" — adding a content track = write its scout/writing skills + an
+  `run_oracle.py` row; the shells + playbook do not change. Keeps the mode difference in data/skills,
+  never as `if mode` inside an agent. Skill↔oracle pairing is explicit (each writing skill's schema ⟷
+  its oracle's input).
+- **Risk:** this changes the *currently-shipping* two-track pipeline. Not run end-to-end here (needs
+  live web + a topic); verification is static (skill output schema passes its oracle via the
+  dispatcher; no dangling agent refs). First real article run is the true test. Explainer track still
+  deferred (oracle pending) — its scout/writing skills are the obvious next additions.
+- **Verified:** aesthetic-writing skill's documented schema, promoted to a post, passes
+  `aesthetic_audit` through `run_oracle --mode aesthetic` (FAIL=0 WARN=0). All 4 skills have valid
+  frontmatter (name + disable-model-invocation). Repo-wide grep: no dangling `research`/`aesthetic-writer`
+  agent-dispatch references in live docs.
+
+## 2026-07-01 — oracle dispatcher + S5.5 Gemini polish (unified-skeleton groundwork)
 - **What:** first two pieces of the "one skeleton, N fillings" rework agreed on claude.ai.
   (1) **`tools/run_oracle.py`** — a thin per-track oracle dispatcher (option A + option (i)):
   `--mode <track>` → the one oracle that gates it (`factual_ai_news`→citation_audit,

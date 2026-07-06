@@ -10,7 +10,8 @@ Section number: $ARGUMENTS
 
 Steps (orchestrator):
 1. Read the section's contract (`contracts/sec<k>_contract.md` + `.json`) and STATE.md.
-2. Dispatch `writer` for section <k>.
+2. Dispatch the `writer` shell for section <k> with mode `factual_ai_news`, naming the
+   `.claude/skills/tech-news-writing/SKILL.md` skill to follow.
 3. Dispatch `fact-checker` against the draft that writer produced. If any claim is not
    SUPPORTED, loop back to `writer` with the exact findings.
 4. Dispatch `grounding-checker` for 2→3. It must cite `outline_ids`; `source_ids` are optional.

@@ -28,6 +28,17 @@ way around. `tools/journal.py summary <article_dir>` prints the rollup incl. per
 writer-dispatch counts (the step budget); `tools/status.py <article_dir>` prints the
 stage matrix with the journal's cost column.
 
+## How S1/S3 stages run: a shell + a mode-skill
+The `scout` (S1) and `writer` (S3) agents are **mode-agnostic shells** — they carry no fixed
+workflow. When you dispatch one, you set the `mode` AND name the **mode-skill** it must read and
+follow (its workflow + output contract live there, not in the agent). Name the exact path so the
+choice is deterministic — never rely on the agent to infer the mode:
+- S1 factual → `.claude/skills/tech-news-scout/SKILL.md`; aesthetic → `.claude/skills/aesthetic-scout/SKILL.md`
+- S3 factual → `.claude/skills/tech-news-writing/SKILL.md`; aesthetic → `.claude/skills/aesthetic-writing/SKILL.md`
+Adding a content track = add its scout/writing skills + an oracle row in `run_oracle.py`; the shells
+and this playbook do not change. (Later stages — editorial, humanizer, review, output — are single
+agents shared across tracks; only S1/S3 are "different 工种" that split by skill.)
+
 ## Stage loop
 
 **S0 — topic + decompose (you do this, no sub-agent).**
@@ -40,11 +51,12 @@ STATE.md before anything else; it is a first-class field, never inferred mid-run
 - **`factual_ai_news`** (`fact_gates: true`) — AI hot-topic explainer. Runs the FULL chain
   below: research → contract → grounding → fact-check → citation audit → source authority.
 - **`aesthetic_lifestyle`** (`fact_gates: false`) — 生活美学 / 治愈系 / 诗意 card post. The
-  fact machine is a category error here (poetry has no `[Sn]` claims), so **SKIP S1 research,
-  the grounding gates, S3 fact-check, and S4 citation audit**. Keep editorial (lite), the
-  **`aesthetic-writer`** (spawn 3 variants + curate — NOT the factual `writer`; see
-  `/write-aesthetic-post`), the humanizer, and taste review. The oracle SHRINKS to
-  `tools/aesthetic_audit.py` (破折号 / card length / banned
+  fact machine is a category error here (poetry has no `[Sn]` claims), so **SKIP the grounding
+  gates, S3 fact-check, and S4 citation audit**. S1 still runs, but the `scout` follows the
+  `aesthetic-scout` skill (a `mood_pack.json`, no web) instead of researching. S3 dispatches the
+  `writer` shell with the `aesthetic-writing` skill **×3 variants + curate** (independent variants
+  are this track's diversity knob). Keep editorial (lite), the humanizer, S5.5 polish, and taste
+  review. The oracle SHRINKS to `tools/aesthetic_audit.py` (破折号 / card length / banned
   phrases / 「」 closure / 0X-0N numbering / overline / **quote verification**). Enter via
   `/write-aesthetic-post`; the runbook is `common/behavior_notes/aesthetic-track.md`.
 - **`mixed_explainer`** — RESERVED; not implemented. It needs a paragraph-level claim
@@ -56,10 +68,12 @@ STATE.md before anything else; it is a first-class field, never inferred mid-run
 The stages below (S1–S7) are the factual-track chain. For the aesthetic track, follow the
 skip list above and jump to the aesthetic runbook.
 
-**S1 — research.** Dispatch `research`. It returns `source_pack.json` (dated sources)
-+ a research brief. ⏸ **HUMAN GATE**: present the angle + the 5-8 strongest sources;
-ask the human to approve the angle and confirm sources are fresh enough. Do not proceed
-without approval. Log dropped angles in DECISIONS.md.
+**S1 — scout.** Dispatch `scout` with the track mode + the mode-scout skill path (see "How
+S1/S3 stages run" above). Factual returns `source_pack.json` (dated sources) + a research brief;
+aesthetic returns `mood_pack.json` (no web). ⏸ **HUMAN GATE**: factual — present the angle + the
+5-8 strongest sources; ask the human to approve the angle and confirm sources are fresh enough.
+Aesthetic — confirm the theme/mood/arc reads right. Do not proceed without approval. Log dropped
+angles in DECISIONS.md.
 
 **S2 — editorial.** Dispatch `editorial`. For each section node it writes
 `contracts/sec<k>_contract.md` + a machine-readable `contracts/sec<k>_contract.json`
@@ -81,9 +95,11 @@ with disjoint files (`sec<k>_*`), so run their loops CONCURRENTLY instead of one
 another:
 - **Wave dispatch.** In one message, dispatch the NEXT pending step of EVERY unconverged
   section as parallel Agent calls (all `writer`s first wave; mixed steps later — sec1 at
-  fact-check while sec3 re-drafts is normal). When the wave returns, journal each result,
-  update STATE.md, dispatch the next wave. Never dispatch two agents on the SAME section
-  in one wave — within a section the chain stays strictly sequential:
+  fact-check while sec3 re-drafts is normal). Dispatch each `writer` as the mode-agnostic
+  shell naming its mode-writing skill (factual → `tech-news-writing`; see "How S1/S3
+  stages run" above). When the wave returns, journal each result, update STATE.md,
+  dispatch the next wave. Never dispatch two agents on the SAME section in one wave —
+  within a section the chain stays strictly sequential:
   `writer → fact-checker → (writer fix →) grounding 2→3 → citation audit`.
 - **Per-section chain, unchanged.** Once `sections/sec<k>_draft.md` exists, `fact-checker`
   verifies that exact draft: it writes `sections/sec<k>_factcheck.json` and runs
@@ -98,6 +114,9 @@ another:
   events are the durable count across resumes (`tools/journal.py summary`). On a
   section's 3rd FAIL, STOP that section and escalate to the human; do not stall the
   other sections while you wait.
+The aesthetic track's S3 is different (no per-section fact/grounding/audit chain): the
+`writer` shell runs the `aesthetic-writing` skill ×3 variants + curate — see the S0 track
+router and the aesthetic runbook, not these waves.
 Sequential fallback: `/write-section <k>` remains the single-section path (debugging, a
 S6 fix loop, or when the human asks to watch one section closely).
 
@@ -188,7 +207,9 @@ At a natural stopping point (a gate cleared, the human says stop), ask whether t
 generate a handoff doc. Do not auto-generate; do not nag mid-stage.
 
 ## Expected completion strings (gate on these exact strings)
-- research: `RESEARCH COMPLETE — source_pack.json + brief written`
+- scout (factual): `RESEARCH COMPLETE — source_pack.json + brief written`
+- scout (aesthetic): `MOOD PACK COMPLETE — mood_pack.json written`
+- writer (aesthetic variant): `AESTHETIC VARIANT <n> DRAFTED — aesthetic_variant_<n>.json written`
 - editorial: `CONTRACTS COMPLETE — <n> section contracts written`
 - grounding-checker: `GROUNDING <stage>: PASS` or `GROUNDING <stage>: FAIL — <n> ungrounded`
 - writer: `SECTION <k> DRAFTED — sec<k>_draft.md written`
@@ -243,7 +264,7 @@ here — keep them intact:
 - **Error compounding** → every section is independently verified (fact-checker +
   citation-audit) before it can feed the assembled draft. A bad section cannot silently
   propagate.
-- **Cost blowup** → research/fact-check fan-out is bounded to the 3-5 section nodes; do
+- **Cost blowup** → scout/fact-check fan-out is bounded to the 3-5 section nodes; do
   not spawn open-ended agent swarms. If a stage needs > 2 retries, escalate, don't respawn.
   The journal makes spend VISIBLE while it happens (`tools/journal.py summary`, the
   status cost column) — a 1M-token surprise discovered after the fact is an agent-fleet
@@ -256,13 +277,14 @@ agents touch the same section in one wave, and never delegate a STATE/journal wr
 sub-agent. The S6 panel is safe the same way: each variant writes its own
 `S6-editorial-review-<variant>.json`; the shared canonical file is written only by you.
 
-Honest scope note: **research** (open-ended concurrent exploration), **fact-check**
-(adversarial independent eval), the **S3 per-section fan-out** (independent contracts →
-real wall-clock parallelism), and the **S6 panel** (independent judges → majority kills
-single-judge false positives) genuinely use sub-agent isolation. The remaining
-article-level stages (editorial, humanizer, output) are a linear workflow; they are
-sub-agents only for uniformity. A lighter build could run those inline and fan out only
-at S1/S3/S6.
+Honest scope note: the factual **scout** (open-ended concurrent exploration),
+**fact-check** (adversarial independent eval), the **S3 per-section fan-out** (independent
+contracts → real wall-clock parallelism), and the **S6 panel** (independent judges →
+majority kills single-judge false positives) genuinely use sub-agent isolation. The
+remaining stages (the `writer` shell, editorial, humanizer, output) are a linear workflow;
+they are shells/agents here for uniformity, isolation, and the mode-skill split, not
+because the task demands a sub-agent. A lighter build could run those inline and fan out
+only at S1/S3/S6.
 
 ## Skills you can invoke (user-invoked, not auto-loaded)
 - `/new-article <slug>` — scaffold a per-article workspace.

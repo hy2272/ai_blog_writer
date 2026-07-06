@@ -19,15 +19,18 @@ Read first: `.claude/orchestrator.md` (S0 track router), `common/style_patterns.
    `quote_verification_required: true`, `visual_style: photo-triptych` or a named preset).
    Confirm the theme + 栏目 (e.g. 《把今天，过成一部电影》) and the card count (default 6).
 
-2. **S2-lite — concept.** One short concept: 主题 / overline (「生活美学」, never mention AI) /
-   tone / the 6-card arc (morning → commute → afternoon → dusk → night → 一句独白). No
-   fact contract; no source pack.
+2. **S1 — scout (mood pack).** Dispatch the `scout` shell with mode `aesthetic_lifestyle`, naming
+   `.claude/skills/aesthetic-scout/SKILL.md`. It creates `mood_pack.json` (主题 / overline
+   「生活美学」, never AI / tone / the card arc: morning → commute → afternoon → dusk → night →
+   一句独白) — no web, no source pack. ⏸ confirm the theme/mood reads right before writing.
 
 3. **S3 — diversity by variants (the aesthetic substitute for temperature).** Dispatch the
-   **`aesthetic-writer`** (NOT the factual `writer` — that one implements a contract + cites a
-   source pack, the wrong objective here) **three times independently**. This harness cannot
-   set a sampling temperature on a subagent, so independent variants ARE the diversity knob.
-   Each writes `sections/aesthetic_variant_<n>.json`. Then **curate**: you (the orchestrator)
+   **`writer` shell three times independently**, each with mode `aesthetic_lifestyle` naming
+   `.claude/skills/aesthetic-writing/SKILL.md` (it reads `mood_pack.json`). The writer shell +
+   aesthetic-writing skill replaces the old standalone `aesthetic-writer` agent; the skill's
+   objective is mood, not a contract. This harness cannot set a sampling temperature on a subagent,
+   so independent variants ARE the diversity knob. Each writes
+   `sections/aesthetic_variant_<n>.json`. Then **curate**: you (the orchestrator)
    merge the strongest line per card into one final set — do not just pick one variant
    wholesale. Log the merge choices in DECISIONS.md. Keep each card short (aesthetic_audit
    WARNs past ~32 chars).
