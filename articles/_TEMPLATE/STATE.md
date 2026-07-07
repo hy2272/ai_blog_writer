@@ -37,7 +37,7 @@ S0 track router). Copy the block that matches; delete the other.
 }
 ```
 
-- `fact_gates`: whether S1 research / grounding / fact-check / citation-audit / source-
+- `fact_gates`: whether S1 scout / grounding / fact-check / citation-audit / source-
   authority run. `true` for factual, `false` for aesthetic (those gates are a category
   error on non-factual prose — see `behavior_notes/aesthetic-track.md`).
 - `quote_verification_required`: aesthetic posts skip fact gates but MUST still verify any
@@ -64,7 +64,7 @@ yet) — do not use it; pick `factual_ai_news` or `aesthetic_lifestyle`.
 | stage | status | note |
 |---|---|---|
 | S0 decompose | todo | |
-| S1 research | todo | ⏸ human angle gate |
+| S1 scout | todo | ⏸ human angle gate |
 | S2 editorial | todo | |
 | S2→3 grounding (1→2) | todo | ⏸ outline grounded in sources |
 | S3 write → fact-check → fix | todo | all sections in parallel waves |

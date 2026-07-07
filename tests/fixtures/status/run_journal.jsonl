@@ -5,4 +5,4 @@
 {"ts":"2026-07-06T10:05:02","event":"result","stage":"S3-writer","section":2,"agent":"writer","status":"pass","tokens":{"total":21930},"cost_usd":0.14}
 not a json line — the loader must skip this, not crash
 {"ts":"2026-07-06T10:06:00","event":"gate","stage":"S4-citation-audit","section":1,"gate":"citation_audit","exit_code":0,"status":"pass"}
-{"ts":"2026-07-06T10:07:00","event":"result","stage":"S1-research","agent":"research","status":"pass","tokens":{"total":80000},"cost_usd":0.52}
+{"ts":"2026-07-06T10:07:00","event":"result","stage":"S1-research","agent":"scout","status":"pass","tokens":{"total":80000},"cost_usd":0.52}
