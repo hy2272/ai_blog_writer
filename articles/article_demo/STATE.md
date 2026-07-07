@@ -17,7 +17,7 @@ read this file and re-enter at the first stage not marked done.
 | stage | status | note |
 |---|---|---|
 | S0 decompose | done | synthetic one-section demo |
-| S1 research | done | source_pack.json has three dated sources |
+| S1 scout | done | source_pack.json has three dated sources |
 | S2 editorial | done | outline.md + sec1 contract |
 | S2→3 grounding (1→2) | skipped | demo only includes 2→3 fixture |
 | S3 write → fact-check → fix | done | synthetic draft |

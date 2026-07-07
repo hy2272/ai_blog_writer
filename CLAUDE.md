@@ -62,7 +62,7 @@ run" machine-enforced rather than a hope.
 The deliverable is a **Chinese** article. The factual ground truth — the source pack —
 is **English** (primary AI sources: lab blogs, papers, release notes are overwhelmingly
 English). So the language boundary sits at the source edge:
-- `research` fetches and records **English** sources (with English titles/dates).
+- `scout` fetches and records **English** sources (with English titles/dates).
 - `editorial`, `writer`, `humanizer`, the final article → **Chinese**.
 - The faithfulness checks are therefore **cross-lingual**: the `grounding-checker` judges
   a Chinese outline/draft against an English source pack by MEANING, not surface words —
@@ -123,7 +123,7 @@ coordinator. Stages mirror sas2pyspark:
 
 - **S0 topic + decompose** — pick the hot topic, split the article into 3-5 section
   nodes; each section = the smallest independently-verifiable unit. (You do this.)
-- **S1 research** — live web search/fetch → a dated `source_pack.json` (the "baseline"
+- **S1 scout** — live web search/fetch → a dated `source_pack.json` (the "baseline"
   truth each section must not contradict). ⏸ HUMAN gate: right angle? sources fresh enough?
 - **S2 editorial** — write a per-section contract (coverage points, must-cite sources,
   word range, Given/When/Then acceptance). Contract is law.
@@ -158,7 +158,7 @@ dispatched as a sub-agent. Enter it via `/write-article`.
 ```
 you ─ orchestrator (owns state + run_journal.jsonl, dispatches, stops at every gate)
         ├─ S0  topic + decompose into section nodes          (you do this)
-        ├─ S1  research ............. dated source_pack.json  →  ⏸ HUMAN approves angle
+        ├─ S1  scout ................ dated source_pack.json  →  ⏸ HUMAN approves angle
         ├─ S2  editorial ............ per-section contract
         ├─ S3  ALL sections in parallel waves:
         │        writer → fact-checker → writer fix → grounding 2→3 → S4 audit

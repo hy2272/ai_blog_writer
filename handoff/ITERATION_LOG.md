@@ -11,6 +11,32 @@ carry the detail.
 
 ---
 
+## 2026-07-06 — unify S1 subagent naming to `scout` (finish #24's rename in the docs #25 missed)
+- **What:** renamed the S1 SUBAGENT from `research` to `scout` in the last places that still used
+  the old name after #24 + #25 both landed: `CLAUDE.md` (Cross-lingual bullet, pipeline list, and
+  the topology tree — 3), `.claude/runtime.md` (the "scout + fact-checker agents" tool note and
+  "scout writes" layout line — 2), `articles/_TEMPLATE/STATE.md` + `articles/article_demo/STATE.md`
+  (the `| S1 scout |` status rows + the fact_gates stage list — 3), and the status fixture's journal
+  `agent` field (`tests/fixtures/status/run_journal.jsonl` — 1). Deliberately KEPT `research` where
+  #24 uses it as the S1 STAGE/PRODUCT vocabulary, NOT a subagent name: the stage stem + result file
+  `S1-research.json` / `stage:"S1-research"`, the product `research_brief.md`, the completion string
+  `RESEARCH COMPLETE`, and the plain-word `<research date>` / "Web research uses…". The fixture line
+  now reads `stage:"S1-research", agent:"scout"` — a clean demonstration of the two axes.
+- **Why:** #24 renamed the S1 agent `research`→`scout` but scoped the edit to orchestrator/commands/
+  RUNBOOK; #25 branched off pre-#24 `main` and kept `research` in CLAUDE.md. Merged on `main`, the two
+  read inconsistently — a reader would infer a `research` subagent that no longer exists (the file is
+  `scout.md`; `research.md` was deleted). This removes the ambiguity on the SUBAGENT axis only.
+- **Risk:** pure doc/fixture renames, zero logic change. The S1 STAGE identifier `S1-research` is
+  intentionally untouched — `status.py` joins journal cost by that stem and CI asserts on it; the
+  fixture keeps `stage:"S1-research"` so the `$0.52`/S1 cost assertion stays green. Unifying the stage
+  identifier too (→`S1-scout`) would be a larger, logic-touching change (the tech-news-scout skill's
+  `RESEARCH COMPLETE` + `S1-research.json`, orchestrator's stage list, runtime layout, the fixtures,
+  and CI asserts) that also fights #24's deliberate scout-work-is-research model — NOT done.
+- **Verified:** repo-wide re-grep — every remaining `research` is a stage identifier, product name,
+  completion string, date, or plain verb (none is a live subagent reference). All 39 CI `run:` blocks
+  replicated under `bash -e` from the merged tree: 0 failures (the fixture `agent`-field rename is not
+  depended on by any assertion; the retained `S1-research` stage keeps the cost assertion green).
+
 ## 2026-07-06 — coordination layer from agent-fleet v2: run journal + S3 parallel fan-out + S5.9 triage & S6 panel
 - **What:** ports the three orchestration mechanisms proven in `hy2272/agent-fleet` v2 into
   this repo's pipeline — patterns only, no code copied; all oracle verdict logic untouched.

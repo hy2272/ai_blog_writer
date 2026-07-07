@@ -65,7 +65,7 @@ also checks that each section draft's heading or `<!-- section:<k> -->` marker i
 that section markers match the number of contracts when markers are used, and that every
 source id cited by section drafts is still cited somewhere in `final.md`.
 
-Web research uses the `WebSearch` / `WebFetch` tools (research + fact-checker agents).
+Web research uses the `WebSearch` / `WebFetch` tools (scout + fact-checker agents).
 Sources are English; the article body is Chinese (see CLAUDE.md "Cross-lingual by design").
 
 Final language polish (optional, last step after both oracles are green):
@@ -100,7 +100,7 @@ articles/article_<slug>/
   DECISIONS.md          audit trail: angle, dropped claims, accepted WARNs
   run_journal.jsonl     append-only run ledger: dispatches, results, gate exits,
                         human decisions, tokens/cost (tools/journal.py; orchestrator owns)
-  source_pack.json      dated sources (research writes; everyone cites these ids)
+  source_pack.json      dated sources (scout writes; everyone cites these ids)
   research_brief.md     proposed angle + strongest sources
   outline.md            section order + through-line (editorial writes)
   contracts/
